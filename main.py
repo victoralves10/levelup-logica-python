@@ -620,6 +620,318 @@ id_login INTEGER NOT NULL REFERENCES T_LVUP_LOGIN (id_login)
 );
 """
 
+# ========= SELECT EMPRESA POR ID =========
+def select_empresa_por_id(_conexao: oracledb.Connection, _id_empresa: int) -> tuple[bool, any]:
+    """
+    Recupera os dados de uma empresa específica pelo ID, incluindo informações de login e endereço.
+    Retorna todas as colunas como lista de dicionários.
+    """
+    if not _id_empresa:
+        return False, "Erro: é necessário informar o ID da empresa."
+
+    try:
+        query = """
+        SELECT 
+            e.id_empresa,
+            e.nm_empresa,
+            e.cnpj_empresa,
+            e.email_empresa,
+            e.dt_cadastro,
+            e.st_empresa,
+            l.login,
+            l.st_ativo AS st_login,
+            endr.cep,
+            endr.pais,
+            endr.estado,
+            endr.cidade,
+            endr.bairro,
+            endr.rua,
+            endr.numero,
+            endr.complemento
+        FROM T_EMPRESA e
+        LEFT JOIN T_LVUP_LOGIN l ON e.id_login = l.id_login
+        LEFT JOIN T_ENDERECO endr ON e.id_endereco = endr.id_endereco
+        WHERE e.id_empresa = :id_empresa
+        """
+
+        cur = _conexao.cursor()
+        cur.execute(query, {"id_empresa": _id_empresa})
+
+        colunas_cursor = [c[0].lower() for c in cur.description]
+        resultados = cur.fetchall()
+        cur.close()
+
+        if not resultados:
+            return True, []  # Nenhum registro encontrado
+
+        # Montar lista de dicionários
+        lista_resultados = []
+        for linha in resultados:
+            registro = {}
+            for i in range(len(colunas_cursor)):
+                registro[colunas_cursor[i]] = linha[i]
+            lista_resultados.append(registro)
+
+        return True, lista_resultados
+
+    except Exception as e:
+        return False, str(e)
+
+# ========= SELECT TODAS AS EMPRESAS COMPLETAS =========
+def select_todas_empresas_completas(_conexao: oracledb.Connection) -> tuple[bool, any]:
+    """
+    Recupera todos os registros de empresas, incluindo informações de login e endereço.
+    Retorna lista de dicionários, cada um representando uma empresa.
+    """
+    try:
+        query = """
+        SELECT 
+            e.id_empresa,
+            e.nm_empresa,
+            e.cnpj_empresa,
+            e.email_empresa,
+            e.dt_cadastro,
+            e.st_empresa,
+            l.login,
+            l.st_ativo AS st_login,
+            endr.cep,
+            endr.pais,
+            endr.estado,
+            endr.cidade,
+            endr.bairro,
+            endr.rua,
+            endr.numero,
+            endr.complemento
+        FROM T_EMPRESA e
+        LEFT JOIN T_LVUP_LOGIN l ON e.id_login = l.id_login
+        LEFT JOIN T_ENDERECO endr ON e.id_endereco = endr.id_endereco
+        ORDER BY e.id_empresa
+        """
+
+        cur = _conexao.cursor()
+        cur.execute(query)
+
+        colunas_cursor = [c[0].lower() for c in cur.description]
+        resultados = cur.fetchall()
+        cur.close()
+
+        if not resultados:
+            return True, []  # Nenhum registro encontrado
+
+        lista_resultados = []
+        for linha in resultados:
+            registro = {}
+            for i in range(len(colunas_cursor)):
+                registro[colunas_cursor[i]] = linha[i]
+            lista_resultados.append(registro)
+
+        return True, lista_resultados
+
+    except Exception as e:
+        return False, str(e)
+
+# ========= SELECT PARA PREVIEW =========
+def select_para_preview(_conexao: oracledb.Connection) -> tuple[bool, any]:
+    """
+    Recupera apenas o ID e o nome de todas as empresas.
+    Retorna uma lista de dicionários com as colunas: id_empresa e nm_empresa.
+    """
+    try:
+        query = "SELECT id_empresa, nm_empresa FROM T_EMPRESA ORDER BY id_empresa"
+
+        cur = _conexao.cursor()
+        cur.execute(query)
+
+        colunas_cursor = [c[0].lower() for c in cur.description]
+        resultados = cur.fetchall()
+        cur.close()
+
+        if not resultados:
+            return True, []  # Nenhum registro encontrado
+
+        # Montar lista de dicionários
+        lista_resultados = []
+        for linha in resultados:
+            registro = {}
+            for i in range(len(colunas_cursor)):
+                registro[colunas_cursor[i]] = linha[i]
+            lista_resultados.append(registro)
+
+        return True, lista_resultados
+
+    except Exception as e:
+        return False, str(e)
+
+# ========= IMPRIMIR LISTA COMO TABELA =========
+def imprimir_lista_como_tabela(lista_resultados: list[dict]) -> None:
+    """
+    Recebe uma lista de dicionários e imprime em formato de tabela organizada usando pandas.
+    """
+    if not lista_resultados:
+        print("Nenhum registro encontrado.")
+        return
+
+    df = pd.DataFrame(lista_resultados)
+    print(df.to_string(index=False))
+
+# ========= IMPRIMIR LISTA NORMAL =========
+def imprimir_lista_simples(lista_resultados: list[dict]) -> None:
+    if not lista_resultados:
+        print("Nenhum registro encontrado.")
+        return
+
+    print("index | Dados")
+
+    contador = 1  # contador global de campos
+    for item in lista_resultados:
+        for chave, valor in item.items():
+            print(f"{contador} - {chave}: {valor}")
+            contador += 1
+
+# ========= UPDATE POR ID =========
+def atualizar_dados_empresa_por_id(_conexao: oracledb.Connection, _index: int, id_empresa: int) -> tuple[bool, any]:
+    """
+    Atualiza os dados de uma empresa pelo ID e pelo índice de campo escolhido.
+    index = 1..16 conforme os campos:
+    1 - ID (não editável)
+    2 - Nome da empresa
+    3 - CNPJ
+    4 - E-mail
+    5 - Data de cadastro
+    6 - Status da empresa
+    7 - Login
+    8 - Status do login
+    9 - CEP
+    10 - País
+    11 - Estado
+    12 - Cidade
+    13 - Bairro
+    14 - Rua
+    15 - Número
+    16 - Complemento
+
+    Retorno:
+        (True, dados_atualizados) ou (False, erro)
+    """
+    try:
+        # Primeiro, recupera os dados atuais da empresa
+        ok, dados_empresa = select_empresa_por_id(_conexao, id_empresa)
+        if not ok or not dados_empresa:
+            return False, "Empresa não encontrada ou erro ao consultar."
+
+        dados_empresa = dados_empresa[0]  # pega o primeiro registro (único ID)
+
+        # Atualiza o campo escolhido
+        match _index:
+            case 1:
+                return False, "Não é possível atualizar o ID."
+
+            case 2:
+                dados_empresa["nm_empresa"] = obter_texto("Nome da Empresa: ", "Entrada inválida. O campo não pode ficar vazio")
+
+            case 3:
+                dados_empresa["cnpj_empresa"] = obter_cnpj("CNPJ da Empresa (ex: 00.000.000/0000-00): ", "Entrada inválida. Digite um CNPJ com 14 números.")
+
+            case 4:
+                dados_empresa["email_empresa"] = obter_email("E-mail da Empresa: ","Formato de e-mail incorreto. Digite um e-mail válido.")
+
+            case 5:
+                dados_empresa["dt_cadastro"] = datetime.now().strftime("%d/%m/%y")
+
+            case 6:
+                dados_empresa["st_empresa"] = "S" if obter_sim_nao("Empresa está ativa (S/N)? ", "Erro!") else "N"
+
+            case 7:
+                dados_empresa["login"] = obter_texto("Digite o login (ex: seu.usuario): ","Entrada inválida. O campo não pode ficar vazio")
+
+            case 8:
+                dados_empresa["st_login"] = "S" if obter_sim_nao("Login está ativo (S/N)? ", "Erro!") else "N"
+
+            case 9:
+                endereco = obter_endereco("Digite o CEP (ex: 01310200): ", "CEP inválido!")
+                dados_empresa["cep"] = endereco["cep"]
+
+            case 10:
+                dados_empresa["pais"] = obter_texto("País (ex: BRA): ", "Entrada inválida. O campo não pode ficar vazio")
+
+            case 11:
+                dados_empresa["estado"] = obter_texto("Estado (ex: SP): ", "Entrada inválida. O campo não pode ficar vazio")
+
+            case 12:
+                dados_empresa["cidade"] = obter_texto("Cidade: ", "Entrada inválida. O campo não pode ficar vazio")
+
+            case 13:
+                dados_empresa["bairro"] = obter_texto("Bairro: ", "Entrada inválida. O campo não pode ficar vazio")
+
+            case 14:
+                dados_empresa["rua"] = obter_texto("Rua: ", "Entrada inválida. O campo não pode ficar vazio")
+
+            case 15:
+                dados_empresa["numero"] = obter_int("Número: ", "Entrada inválida. Digite apenas números.")
+
+            case 16:
+                dados_empresa["complemento"] = obter_texto("Complemento: ", "Entrada inválida. O campo não pode ficar vazio")
+
+            case _:
+                return False, "Campo inválido!"
+
+        # Atualização no banco de dados
+        cur = _conexao.cursor()
+        comando_sql = """
+        UPDATE T_EMPRESA e
+        SET 
+            nm_empresa = :nm_empresa,
+            cnpj_empresa = :cnpj_empresa,
+            email_empresa = :email_empresa,
+            st_empresa = :st_empresa
+        WHERE e.id_empresa = :id_empresa
+        """
+        cur.execute(comando_sql, {**dados_empresa, "id_empresa": id_empresa})
+
+        # Atualiza login
+        comando_login = """
+        UPDATE T_LVUP_LOGIN
+        SET login = :login,
+            st_ativo = :st_login
+        WHERE id_login = :id_login
+        """
+        cur.execute(comando_login, {"login": dados_empresa["login"],
+                                    "st_login": dados_empresa["st_login"],
+                                    "id_login": dados_empresa["id_login"]})
+
+        # Atualiza endereço
+        comando_endereco = """
+        UPDATE T_ENDERECO
+        SET cep = :cep,
+            pais = :pais,
+            estado = :estado,
+            cidade = :cidade,
+            bairro = :bairro,
+            rua = :rua,
+            numero = :numero,
+            complemento = :complemento
+        WHERE id_endereco = :id_endereco
+        """
+        cur.execute(comando_endereco, {
+            "cep": dados_empresa["cep"],
+            "pais": dados_empresa["pais"],
+            "estado": dados_empresa["estado"],
+            "cidade": dados_empresa["cidade"],
+            "bairro": dados_empresa["bairro"],
+            "rua": dados_empresa["rua"],
+            "numero": dados_empresa["numero"],
+            "complemento": dados_empresa["complemento"],
+            "id_endereco": dados_empresa["id_endereco"]
+        })
+
+        _conexao.commit()
+        cur.close()
+
+        # Retorna os dados atualizados
+        return True, dados_empresa
+
+    except Exception as e:
+        return False, str(e)
 
 # ========================================
 #   CONEXÃO COM O BANCO DE DADOS ORACLE
@@ -677,6 +989,21 @@ while ok:
             limpar_terminal()
             exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA — LOGIN", 60)
 
+            print("\nAntes de continuar, precisamos solicitar algumas informações da empresa.\n")
+
+            deseja_continuar = obter_sim_nao(
+                "Deseja informar os dados para continuar? (S/N): ",
+                "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+            )
+
+            if not deseja_continuar:
+                limpar_terminal()
+                print("\nCadastro cancelado pelo usuário.\n")
+                input("\nAperte ENTER para voltar ao menu principal...")
+                continue  # volta ao menu
+            
+            limpar_terminal()
+            exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA — LOGIN", 60)
             # ---------------------------
             # 1. SOLICITAR LOGIN
             # ---------------------------
@@ -752,14 +1079,119 @@ while ok:
         case 2: # 2 - Consultar empresas cadastradas
             limpar_terminal()
             exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
-            print("\nFunção em manutenção. Em breve disponível!\n")
+
+            deseja_continuar = obter_sim_nao(
+                "Deseja fazer uma pesquisa? (S/N): ",
+                "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+            )
+
+            limpar_terminal()
+            exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
+
+            if not deseja_continuar:
+                limpar_terminal()
+                print("Pesquisa cancelado pelo usuário.\n")
+                input("\nAperte ENTER para voltar ao menu principal...")
+                continue  # volta ao menu
+
+            # Pergunta se deseja consultar uma empresa específica ou todas
+            opcao_consulta = obter_sim_nao(
+                "Deseja consultar uma empresa específica pelo ID? (S/N): ",
+                "Entrada inválida! Digite S para Sim ou N para Não."
+            )
+
+            if opcao_consulta:  # Consulta por ID
+                # Mostra preview de todas as empresas (ID e Nome) antes de digitar
+                ok_preview, preview_empresas = select_para_preview(conn)
+                if ok_preview and preview_empresas:
+                    print("\nPreview das empresas cadastradas (ID e Nome):")
+                    imprimir_lista_como_tabela(preview_empresas)
+                else:
+                    print("\nNenhuma empresa encontrada para preview.")
+
+                # Solicita o ID após o preview
+                id_empresa = obter_int(
+                    "\nDigite o ID da empresa que deseja consultar: ",
+                    "Entrada inválida! Digite apenas números."
+                )
+                ok_sel, resultado = select_empresa_por_id(conn, id_empresa)
+
+            else:  # Consulta todas as empresas completas
+                ok_sel, resultado = select_todas_empresas_completas(conn)
+
+            if not ok_sel:
+                print("\nErro ao consultar o banco de dados:")
+                print(resultado)
+            else:
+                limpar_terminal()
+                exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
+                imprimir_lista_como_tabela(resultado)
+
             input("\nAperte ENTER para voltar ao menu principal...")
 
-        case 3:
+        case 3:  # 3 - Atualizar informações de uma empresa
             limpar_terminal()
             exibir_titulo_centralizado("ATUALIZAR INFORMAÇÕES DE EMPRESA", 60)
-            print("\nFunção em manutenção. Em breve disponível!\n")
+
+            deseja_continuar = obter_sim_nao(
+                "Deseja atualizar os dados? (S/N): ",
+                "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+            )
+
+            if not deseja_continuar:
+                limpar_terminal()
+                print("Atualização cancelada pelo usuário.\n")
+                input("\nAperte ENTER para voltar ao menu principal...")
+                continue  # volta ao menu
+
+            # Preview das empresas
+            ok_preview, preview_empresas = select_para_preview(conn)
+            if ok_preview and preview_empresas:
+                print("\nPreview das empresas cadastradas (ID e Nome):")
+                imprimir_lista_como_tabela(preview_empresas)
+            else:
+                print("\nNenhuma empresa encontrada para preview.")
+
+            # Solicita o ID da empresa
+            id_empresa = obter_int(
+                "\nDigite o ID da empresa que deseja atualizar: ",
+                "Entrada inválida! Digite apenas números."
+            )
+
+            ok_sel, resultado = select_empresa_por_id(conn, id_empresa)
+            if not ok_sel or not resultado:
+                print("\nErro ao consultar o banco de dados ou empresa não encontrada:")
+                print(resultado)
+                input("\nAperte ENTER para voltar ao menu principal...")
+                continue
+
+            # Mostra os dados atuais
+            limpar_terminal()
+            exibir_titulo_centralizado("DADOS ATUAIS DA EMPRESA", 60)
+            imprimir_lista_simples(resultado)
+
+            campo_escolhido = obter_int_intervalado(
+                "\nDigite o número do campo a atualizar: ",
+                "Entrada inválida! Digite um número válido.",
+                0, 16
+            )
+
+            if campo_escolhido == 0:
+                print("\nAtualização cancelada pelo usuário.")
+                input("\nAperte ENTER para voltar ao menu principal...")
+                continue
+
+            # Chama a função de atualização
+            ok_atual, resultado_atual = atualizar_dados_empresa_por_id(conn, campo_escolhido, id_empresa)
+            if ok_atual:
+                print("\nDados atualizados com sucesso!")
+                imprimir_lista_simples([resultado_atual])
+            else:
+                print("\nErro ao atualizar os dados:")
+                print(resultado_atual)
+
             input("\nAperte ENTER para voltar ao menu principal...")
+
 
         case 4:
             limpar_terminal()
