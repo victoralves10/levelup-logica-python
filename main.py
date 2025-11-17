@@ -476,7 +476,7 @@ def solicitar_dados_t_empresa() -> tuple[bool, any]:  # dict ou erro
 
         email_empresa = obter_email("E-mail da Empresa: ","Formato de e-mail incorreto. Digite um e-mail válido da empresa.")
 
-        dt_cadastro = datetime.now().strftime("%d/%m/%y")
+        dt_cadastro = datetime.now()
 
         dados = {
             "nm_empresa": nm_empresa,
@@ -814,120 +814,83 @@ def atualizar_dados_empresa_por_id(_conexao: oracledb.Connection, _index: int, i
         (True, dados_atualizados) ou (False, erro)
     """
     try:
-        # Primeiro, recupera os dados atuais da empresa
+        # Recupera os dados atuais da empresa
         ok, dados_empresa = select_empresa_por_id(_conexao, id_empresa)
         if not ok or not dados_empresa:
             return False, "Empresa não encontrada ou erro ao consultar."
-
         dados_empresa = dados_empresa[0]  # pega o primeiro registro (único ID)
 
         # Atualiza o campo escolhido
         match _index:
             case 1:
                 return False, "Não é possível atualizar o ID."
-
             case 2:
                 dados_empresa["nm_empresa"] = obter_texto("Nome da Empresa: ", "Entrada inválida. O campo não pode ficar vazio")
-
             case 3:
                 dados_empresa["cnpj_empresa"] = obter_cnpj("CNPJ da Empresa (ex: 00.000.000/0000-00): ", "Entrada inválida. Digite um CNPJ com 14 números.")
-
             case 4:
                 dados_empresa["email_empresa"] = obter_email("E-mail da Empresa: ","Formato de e-mail incorreto. Digite um e-mail válido.")
-
             case 5:
-                dados_empresa["dt_cadastro"] = datetime.now().strftime("%d/%m/%y")
-
+                dados_empresa["dt_cadastro"] = datetime.now()
             case 6:
-                dados_empresa["st_empresa"] = "S" if obter_sim_nao("Empresa está ativa (S/N)? ", "Erro!") else "N"
-
+                dados_empresa["st_empresa"] = "A" if obter_sim_nao("Empresa está ativa (S/N)? ", "Erro!") else "I"
             case 7:
                 dados_empresa["login"] = obter_texto("Digite o login (ex: seu.usuario): ","Entrada inválida. O campo não pode ficar vazio")
-
             case 8:
                 dados_empresa["st_login"] = "S" if obter_sim_nao("Login está ativo (S/N)? ", "Erro!") else "N"
-
             case 9:
                 endereco = obter_endereco("Digite o CEP (ex: 01310200): ", "CEP inválido!")
                 dados_empresa["cep"] = endereco["cep"]
-
             case 10:
                 dados_empresa["pais"] = obter_texto("País (ex: BRA): ", "Entrada inválida. O campo não pode ficar vazio")
-
             case 11:
                 dados_empresa["estado"] = obter_texto("Estado (ex: SP): ", "Entrada inválida. O campo não pode ficar vazio")
-
             case 12:
                 dados_empresa["cidade"] = obter_texto("Cidade: ", "Entrada inválida. O campo não pode ficar vazio")
-
             case 13:
                 dados_empresa["bairro"] = obter_texto("Bairro: ", "Entrada inválida. O campo não pode ficar vazio")
-
             case 14:
                 dados_empresa["rua"] = obter_texto("Rua: ", "Entrada inválida. O campo não pode ficar vazio")
-
             case 15:
                 dados_empresa["numero"] = obter_int("Número: ", "Entrada inválida. Digite apenas números.")
-
             case 16:
                 dados_empresa["complemento"] = obter_texto("Complemento: ", "Entrada inválida. O campo não pode ficar vazio")
-
             case _:
                 return False, "Campo inválido!"
 
         # Atualização no banco de dados
         cur = _conexao.cursor()
-        comando_sql = """
-        UPDATE T_EMPRESA e
-        SET 
-            nm_empresa = :nm_empresa,
-            cnpj_empresa = :cnpj_empresa,
-            email_empresa = :email_empresa,
-            st_empresa = :st_empresa
-        WHERE e.id_empresa = :id_empresa
-        """
-        cur.execute(comando_sql, {**dados_empresa, "id_empresa": id_empresa})
+
+        # Atualiza apenas o campo escolhido na T_EMPRESA
+        campos_empresa_map = {
+            2: "nm_empresa",
+            3: "cnpj_empresa",
+            4: "email_empresa",
+            5: "dt_cadastro",
+            6: "st_empresa"
+        }
+        if _index in campos_empresa_map:
+            campo_sql = campos_empresa_map[_index]
+            sql = f"UPDATE T_EMPRESA SET {campo_sql} = :valor WHERE id_empresa = :id_empresa"
+            cur.execute(sql, {"valor": dados_empresa[campo_sql], "id_empresa": id_empresa})
 
         # Atualiza login
-        comando_login = """
-        UPDATE T_LVUP_LOGIN
-        SET login = :login,
-            st_ativo = :st_login
-        WHERE id_login = :id_login
-        """
-        cur.execute(comando_login, {"login": dados_empresa["login"],
-                                    "st_login": dados_empresa["st_login"],
-                                    "id_login": dados_empresa["id_login"]})
+        campos_login_map = {7: "login", 8: "st_login"}
+        if _index in campos_login_map:
+            campo_sql = campos_login_map[_index]
+            sql_login = f"UPDATE T_LVUP_LOGIN SET {campo_sql if campo_sql != 'st_login' else 'st_ativo'} = :valor WHERE id_login = :id_login"
+            cur.execute(sql_login, {"valor": dados_empresa[campo_sql], "id_login": dados_empresa["id_login"]})
 
         # Atualiza endereço
-        comando_endereco = """
-        UPDATE T_ENDERECO
-        SET cep = :cep,
-            pais = :pais,
-            estado = :estado,
-            cidade = :cidade,
-            bairro = :bairro,
-            rua = :rua,
-            numero = :numero,
-            complemento = :complemento
-        WHERE id_endereco = :id_endereco
-        """
-        cur.execute(comando_endereco, {
-            "cep": dados_empresa["cep"],
-            "pais": dados_empresa["pais"],
-            "estado": dados_empresa["estado"],
-            "cidade": dados_empresa["cidade"],
-            "bairro": dados_empresa["bairro"],
-            "rua": dados_empresa["rua"],
-            "numero": dados_empresa["numero"],
-            "complemento": dados_empresa["complemento"],
-            "id_endereco": dados_empresa["id_endereco"]
-        })
+        campos_end_map = {9: "cep", 10: "pais", 11: "estado", 12: "cidade", 13: "bairro", 14: "rua", 15: "numero", 16: "complemento"}
+        if _index in campos_end_map:
+            campo_sql = campos_end_map[_index]
+            sql_end = f"UPDATE T_ENDERECO SET {campo_sql} = :valor WHERE id_endereco = :id_endereco"
+            cur.execute(sql_end, {"valor": dados_empresa[campo_sql], "id_endereco": dados_empresa["id_endereco"]})
 
         _conexao.commit()
         cur.close()
 
-        # Retorna os dados atualizados
         return True, dados_empresa
 
     except Exception as e:
@@ -1184,9 +1147,11 @@ while ok:
             # Chama a função de atualização
             ok_atual, resultado_atual = atualizar_dados_empresa_por_id(conn, campo_escolhido, id_empresa)
             if ok_atual:
+                limpar_terminal()
                 print("\nDados atualizados com sucesso!")
                 imprimir_lista_simples([resultado_atual])
             else:
+                limpar_terminal()
                 print("\nErro ao atualizar os dados:")
                 print(resultado_atual)
 
