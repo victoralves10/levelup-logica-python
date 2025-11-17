@@ -2,6 +2,7 @@ import os
 import re
 import oracledb
 import requests
+import pandas as pd
 from datetime import datetime, date
 os.system("cls" if os.name == "nt" else "clear")
 
@@ -263,21 +264,54 @@ def obter_m_f(_msg_input: str, _msg_erro: str) -> str:
     return entrada_mf
 
 def obter_cpf(_msg_input: str, _msg_erro: str) -> str:
-    """Solicita ao usuário um CPF no formato numérico (11 dígitos), aceitando também formatos com pontos e traço,
-    exibindo uma mensagem de erro personalizada em caso de entrada inválida.
-    Exemplo aceito: 555.555.555-20 ou 55555555520."""
+    """Solicita ao usuário um CPF (11 dígitos), aceitando com ou sem formatação
+    e retornando sempre no formato 000.000.000-00."""
     
     cpf = ""
 
     while not (cpf.isdigit() and len(cpf) == 11):
         entrada = input(_msg_input).strip()
-        cpf = entrada.replace(".", "").replace("-", "").replace(" ", "")
-        
+        cpf = (
+            entrada.replace(".", "")
+                   .replace("-", "")
+                   .replace(" ", "")
+        )
+
         if not (cpf.isdigit() and len(cpf) == 11):
-            print(f"{_msg_erro}\n") # Entrada inválida. Digite um CPF com 11 números.
+            print(f"{_msg_erro}\n")
             cpf = ""
 
-    return cpf
+    cpf_formatado = (
+        f"{cpf[0:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:11]}"
+    )
+
+    return cpf_formatado
+
+
+def obter_cnpj(_msg_input: str, _msg_erro: str) -> str:
+    """Solicita ao usuário um CNPJ (14 dígitos), aceitando com ou sem formatação
+    e retornando sempre no formato 00.000.000/0000-00."""
+    
+    cnpj = ""
+
+    while not (cnpj.isdigit() and len(cnpj) == 14):
+        entrada = input(_msg_input).strip()
+        cnpj = (
+            entrada.replace(".", "")
+                   .replace("-", "")
+                   .replace("/", "")
+                   .replace(" ", "")
+        )
+
+        if not (cnpj.isdigit() and len(cnpj) == 14):
+            print(f"{_msg_erro}\n")
+            cnpj = ""
+
+    cnpj_formatado = (
+        f"{cnpj[0:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:14]}"
+    )
+
+    return cnpj_formatado
 
 def obter_rg(_msg_input: str, _msg_erro: str) -> str:
     """Solicita ao usuário um número de RG (somente números, 9 dígitos), 
@@ -325,7 +359,7 @@ def obter_endereco(_msg_input: str, _msg_erro: str) -> dict:
                     "bairro": data.get("bairro", ""),
                     "cidade": data.get("localidade", ""),
                     "estado": data.get("uf", ""),
-                    "pais": "Brasil"
+                    "pais": "BRA"
                 }
 
         except Exception:
@@ -356,7 +390,7 @@ def obter_estado(_endereco: dict) -> str:
 
 def obter_pais(_endereco: dict) -> str:
     """Retorna o país associado ao endereço obtido pela função obter_endereco()."""
-    return _endereco.get("pais", "Brasil")
+    return _endereco.get("pais", "BRA")
 
 
 # ==========================================================
@@ -372,15 +406,13 @@ def solicitar_dados_endereco() -> tuple[bool, any]:  # dict ou erro
         (False, erro) -> quando ocorre alguma exceção
     """
     try:
-        print("INFORMAÇÕES DE ENDEREÇO")
+        print("INFORMAÇÕES DE ENDEREÇO\n")
 
         # ===== 1. CEP + consulta automática =====
         endereco = obter_endereco(
             "Digite o CEP (ex: 01310200): ",
             "CEP inválido! Digite um CEP com 8 números."
         )
-
-        imprimir_linha_separadora("=", 40)
 
         # ===== 2. País, Estado, Cidade, Bairro, Rua =====
         pais = obter_pais(endereco)
@@ -389,18 +421,13 @@ def solicitar_dados_endereco() -> tuple[bool, any]:  # dict ou erro
         bairro = obter_bairro(endereco)
         rua = obter_rua(endereco)
 
+        imprimir_linha_separadora("=", 40)
+
         # ===== 3. Número =====
         numero = obter_int(
             "Número da residência: ",
             "Entrada inválida. Digite apenas números."
         )
-
-        # ===== 4. Complemento (máx 150 caracteres, pode ser vazio) =====
-        imprimir_linha_separadora("=", 40)
-        complemento = input("Complemento (máx 150 caracteres, pode ser vazio): ")
-        while len(complemento) > 150:
-            print("\nO complemento deve ter no máximo 150 caracteres.\n")
-            complemento = complemento = input("Complemento (máx 150 caracteres, pode ser vazio): ")
 
         # ===== 5. Retorno final =====
         dados = {
@@ -410,8 +437,53 @@ def solicitar_dados_endereco() -> tuple[bool, any]:  # dict ou erro
             "cidade": cidade,
             "bairro": bairro,
             "rua": rua,
-            "numero": numero,
-            "complemento": complemento
+            "numero": numero
+        }
+
+        return (True, dados)
+
+    except Exception as e:
+        return (False, e)
+
+def solicitar_dados_t_lvup_login() -> tuple[bool, any]:  # dict ou erro
+    try:
+        print("INFORMAÇÕES DE LOGIN\n")
+
+        login = obter_texto("Digite o login (ex: seu.usuario): ","Entrada inválida. O campo não pode ficar vazio.")
+        imprimir_linha_separadora("=", 40)
+
+        senha = obter_texto("Digite a senha: ","Entrada inválida. O campo não pode ficar vazio.")
+
+        dados = {
+            "login": login,
+            "senha": senha,
+            "st_ativo": "S",
+        }
+        return (True, dados)
+
+    except Exception as e:
+        return (False, e)
+
+def solicitar_dados_t_empresa() -> tuple[bool, any]:  # dict ou erro
+    try:
+        print("INFORMAÇÕES DA EMPRESA\n")
+
+        nm_empresa = obter_texto("Nome da Empresa: ", "Entrada inválida. O campo não pode ficar vazio")
+        imprimir_linha_separadora("=", 40)
+
+        cnpj_empresa = obter_cnpj("CNPJ da Empresa (ex: 00.000.000/0000-00): ", "Entrada inválida. Digite um CNPJ com 14 números.")
+        imprimir_linha_separadora("=", 40)
+
+        email_empresa = obter_email("E-mail da Empresa: ","Formato de e-mail incorreto. Digite um e-mail válido da empresa.")
+
+        dt_cadastro = datetime.now().strftime("%d/%m/%y")
+
+        dados = {
+            "nm_empresa": nm_empresa,
+            "cnpj_empresa": cnpj_empresa,
+            "email_empresa": email_empresa,
+            "dt_cadastro": dt_cadastro,
+            "st_empresa": "A"
         }
 
         return (True, dados)
@@ -420,7 +492,7 @@ def solicitar_dados_endereco() -> tuple[bool, any]:  # dict ou erro
         return (False, e)
 
 # ==========================================================
-#   CONEXÃO BANCO DE DADOS
+#   BANCO DE DADOS
 # ==========================================================
 
 # ========= CONEXÃO BANCO DE DADOS =========
@@ -443,30 +515,134 @@ def conectar_oracledb(_user: str, _password: str, _dsn: str) -> tuple[bool, any]
     
     return retorno
 
+# ========= INSERT  =========
+def insert_endereco(_conexao: oracledb.Connection, _dados_endereco: dict) -> tuple[bool, any]:
+    """
+    Insere um novo endereço na tabela T_ENDERECO.
+    Retorna (True, id_endereco) ou (False, erro)
+    """
+    try:
+        comando_sql = """
+        INSERT INTO T_ENDERECO (
+            cep, pais, estado, cidade, bairro, rua, numero
+        ) VALUES (
+            :cep, :pais, :estado, :cidade, :bairro, :rua, :numero
+        )
+        RETURNING id_endereco INTO :id_endereco
+        """
+        cur = _conexao.cursor()
+        id_endereco = cur.var(int)
+        cur.execute(comando_sql, {**_dados_endereco, "id_endereco": id_endereco})
+        _conexao.commit()
+        cur.close()
+        return (True, id_endereco.getvalue()[0])
+    except Exception as e:
+        return (False, e)
+"""CREATE TABLE T_ENDERECO(
+id_endereco INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+cep VARCHAR2(10) NOT NULL,
+pais VARCHAR2(3) NOT NULL,
+estado VARCHAR2(2) NOT NULL,
+cidade VARCHAR2(100) NOT NULL,
+bairro VARCHAR2(100) NOT NULL,
+rua VARCHAR2(150) NOT NULL,
+numero INTEGER NOT NULL,
+complemento VARCHAR2(150)
+);
+"""
+
+#  ========= INSERT T_LVUP_LOGIN =========
+def insert_lvup_login(_conexao: oracledb.Connection, _dados_login: dict) -> tuple[bool, any]:
+    """
+    Insere um novo login na tabela T_LVUP_LOGIN.
+    Retorna (True, id_login) ou (False, erro)
+    """
+    try:
+        comando_sql = """
+        INSERT INTO T_LVUP_LOGIN (
+            login, senha, st_ativo
+        ) VALUES (
+            :login, :senha, :st_ativo
+        )
+        RETURNING id_login INTO :id_login
+        """
+        cur = _conexao.cursor()
+        id_login = cur.var(int)
+        cur.execute(comando_sql, {**_dados_login, "id_login": id_login})
+        _conexao.commit()
+        cur.close()
+        return (True, id_login.getvalue()[0])
+    except Exception as e:
+        return (False, e)
+"""CREATE TABLE T_LVUP_LOGIN (
+id_login INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+login VARCHAR2(100) NOT NULL,
+senha VARCHAR2(100) NOT NULL,
+st_ativo CHAR(1) NOT NULL,
+id_empresa INTEGER,
+id_instAcademica INTEGER,
+id_pessoa INTEGER
+);
+"""
+
+# ========= INSERT T_EMPRESA =========
+def insert_empresa(_conexao: oracledb.Connection, _dados_empresa: dict, id_endereco: int, id_login: int) -> tuple[bool, any]:
+    """
+    Insere uma nova empresa na tabela T_EMPRESA.
+    Retorna (True, id_empresa) ou (False, erro)
+    """
+    try:
+        comando_sql = """
+        INSERT INTO T_EMPRESA (
+            nm_empresa, cnpj_empresa, email_empresa, dt_cadastro, st_empresa, id_endereco, id_login
+        ) VALUES (
+            :nm_empresa, :cnpj_empresa, :email_empresa, TO_DATE(:dt_cadastro, 'DD/MM/YY'), :st_empresa, :id_endereco, :id_login
+        )
+        RETURNING id_empresa INTO :id_empresa
+        """
+        cur = _conexao.cursor()
+        id_empresa = cur.var(int)
+        cur.execute(comando_sql, {**_dados_empresa, "id_endereco": id_endereco, "id_login": id_login, "id_empresa": id_empresa})
+        _conexao.commit()
+        cur.close()
+        return (True, id_empresa.getvalue()[0])
+    except Exception as e:
+        return (False, e)
+"""CREATE TABLE T_EMPRESA (
+id_empresa INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+nm_empresa VARCHAR2(150) NOT NULL,
+cnpj_empresa VARCHAR2(20) NOT NULL,
+email_empresa VARCHAR2(100) NOT NULL,
+dt_cadastro DATE NOT NULL, -- mudar isso para fazer automatico
+st_empresa CHAR(1) NOT NULL,
+id_endereco INTEGER REFERENCES T_ENDERECO (id_endereco),
+id_login INTEGER NOT NULL REFERENCES T_LVUP_LOGIN (id_login)
+);
+"""
+
+
 # ========================================
 #   CONEXÃO COM O BANCO DE DADOS ORACLE
 # ========================================
 
-'''
-user = "rm561833"
-password = "070406"
+user = "rm561713"
+password = "290107"
 dsn = "oracle.fiap.com.br:1521/ORCL"
 
 ok, conn = conectar_oracledb(user, password, dsn)
 
 if ok:
     limpar_terminal()
-    exibir_titulo_centralizado("CONECTADO AO BANCO DE DADOS COM SUCESSO", 60)
-    print("\nConexão estabelecida com sucesso com o servidor Oracle da FIAP.")
+    exibir_titulo_centralizado("✅ CONECTADO AO BANCO DE DADOS COM SUCESSO", 60)
+    print("Conexão estabelecida com sucesso com o servidor Oracle da FIAP.")
     input("\nAperte ENTER para acessar o sistema...")
 else:
     limpar_terminal()
-    exibir_titulo_centralizado("ERRO AO CONECTAR AO BANCO DE DADOS", 60)
-    print(f"\nDetalhes do erro:\n{conn}\n")
+    exibir_titulo_centralizado("❌ ERRO AO CONECTAR AO BANCO DE DADOS", 60)
+    print(f"Detalhes do erro:\n{conn}\n")
     input("Aperte ENTER para encerrar o programa...")
-''' 
 
-ok = True
+# ok = True
 
 # ========================================
 #   MENU PRINCIPAL
@@ -492,47 +668,88 @@ while ok:
 
     match escolha_menu_principal:
 
-        case 0:
+        case 0: # 0 - Sair do sistema
             limpar_terminal()
             print("\nPrograma encerrado. Até logo!\n")
             ok = False
 
-        case 1:
+        case 1: # 1 - Cadastrar nova empresa
             limpar_terminal()
-            exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA", 60)
+            exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA — LOGIN", 60)
 
-            print("\nAntes de continuar, precisamos solicitar algumas informações da empresa.\n")
-
-            deseja_continuar = obter_sim_nao(
-                "Deseja informar os dados para continuar? (S/N): ",
-                "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
-            )
-
-            if not deseja_continuar:
-                limpar_terminal()
-                print("\nCadastro cancelado pelo usuário.\n")
+            # ---------------------------
+            # 1. SOLICITAR LOGIN
+            # ---------------------------
+            sucesso_login, dados_login = solicitar_dados_t_lvup_login()
+            if not sucesso_login:
+                print("\nErro ao coletar dados de login:")
+                print(dados_login)
                 input("\nAperte ENTER para voltar ao menu principal...")
-                continue  # volta ao menu
+                continue
 
-            # --- Solicitar endereço ---
+
+            # ---------------------------
+            # 2. SOLICITAR ENDEREÇO
+            # ---------------------------
             limpar_terminal()
-            exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA", 60)
+            exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA — ENDEREÇO", 60)
 
-            sucesso, retorno = solicitar_dados_endereco()
-
-            if not sucesso:
-                print("\nOcorreu um erro ao solicitar o endereço:")
-                print(retorno)
+            sucesso_end, dados_endereco = solicitar_dados_endereco()
+            if not sucesso_end:
+                print("\nErro ao coletar dados de endereço:")
+                print(dados_endereco)
                 input("\nAperte ENTER para voltar ao menu principal...")
-                continue  # volta ao menu
+                continue
 
-            print("\nEndereço registrado com sucesso!")
-            print("Dados:", retorno)
 
+            # ---------------------------
+            # 3. SOLICITAR DADOS DA EMPRESA
+            # ---------------------------
+            limpar_terminal()
+            exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA — DADOS DA EMPRESA", 60)
+
+            sucesso_emp, dados_empresa = solicitar_dados_t_empresa()
+            if not sucesso_emp:
+                print("\nErro ao coletar dados da empresa:")
+                print(dados_empresa)
+                input("\nAperte ENTER para voltar ao menu principal...")
+                continue
+
+            # ---------------------------
+            # 4. INSERIR TUDO NO BANCO DE DADOS
+            # ---------------------------
+            limpar_terminal()
+            exibir_titulo_centralizado("PROCESSANDO CADASTRO...", 60)
+
+            # INSERE LOGIN
+            ok_login, id_login = insert_lvup_login(conn, dados_login)
+            if not ok_login:
+                print("Erro ao inserir login no banco:")
+                print(id_login)
+                input("\nAperte ENTER para voltar ao menu principal...")
+                continue
+
+            # INSERE ENDEREÇO
+            ok_end_bd, id_endereco = insert_endereco(conn, dados_endereco)
+            if not ok_end_bd:
+                print("Erro ao inserir endereço no banco:")
+                print(id_endereco)
+                input("\nAperte ENTER para voltar ao menu principal...")
+                continue
+
+            # INSERE EMPRESA
+            ok_emp_bd, id_empresa = insert_empresa(conn, dados_empresa, id_endereco, id_login)
+            if not ok_emp_bd:
+                print("Erro ao inserir empresa no banco:")
+                print(id_empresa)
+                input("\nAperte ENTER para voltar ao menu principal...")
+                continue
+
+            # SUCESSO FINAL
+            print("\nCadastro concluído com sucesso!")
             input("\nAperte ENTER para voltar ao menu principal...")
-            continue
 
-        case 2:
+        case 2: # 2 - Consultar empresas cadastradas
             limpar_terminal()
             exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
             print("\nFunção em manutenção. Em breve disponível!\n")
