@@ -820,6 +820,22 @@ def atualizar_dados_empresa_por_id(_conexao: oracledb.Connection, _index: int, i
             return False, "Empresa não encontrada ou erro ao consultar."
         dados_empresa = dados_empresa[0]  # pega o primeiro registro (único ID)
 
+        # Garantir que id_login e id_endereco estejam presentes
+        cur = _conexao.cursor()
+        if "id_login" not in dados_empresa or not dados_empresa.get("id_login"):
+            cur.execute(
+                "SELECT id_login FROM T_LVUP_LOGIN WHERE login = :login",
+                {"login": dados_empresa.get("login")}
+            )
+            row = cur.fetchone()
+            dados_empresa["id_login"] = row[0] if row else None
+
+        if "id_endereco" not in dados_empresa or not dados_empresa.get("id_endereco"):
+            # Supõe que T_EMPRESA tem a coluna id_endereco
+            dados_empresa["id_endereco"] = dados_empresa.get("id_endereco")
+
+        cur.close()
+
         # Atualiza o campo escolhido
         match _index:
             case 1:
@@ -862,13 +878,7 @@ def atualizar_dados_empresa_por_id(_conexao: oracledb.Connection, _index: int, i
         cur = _conexao.cursor()
 
         # Atualiza apenas o campo escolhido na T_EMPRESA
-        campos_empresa_map = {
-            2: "nm_empresa",
-            3: "cnpj_empresa",
-            4: "email_empresa",
-            5: "dt_cadastro",
-            6: "st_empresa"
-        }
+        campos_empresa_map = {2: "nm_empresa", 3: "cnpj_empresa", 4: "email_empresa", 5: "dt_cadastro", 6: "st_empresa"}
         if _index in campos_empresa_map:
             campo_sql = campos_empresa_map[_index]
             sql = f"UPDATE T_EMPRESA SET {campo_sql} = :valor WHERE id_empresa = :id_empresa"
