@@ -1,0 +1,20 @@
+[
+    {
+        "id_empresa": 8,
+        "nm_empresa": "Mídia Streaming Plus",
+        "cnpj_empresa": "08.000.000/0001-08",
+        "email_empresa": "imprensa@streamplus.com",
+        "dt_cadastro": "01/09/2022 00:00",
+        "st_empresa": "A",
+        "login": "streamplus.adm",
+        "st_login": "S",
+        "cep": "18901-235",
+        "pais": "BRA",
+        "estado": "DF",
+        "cidade": "Taguatinga",
+        "bairro": "Comercial",
+        "rua": "Rua do Escritório",
+        "numero": 180,
+        "complemento": "Sala 18"
+    }
+]

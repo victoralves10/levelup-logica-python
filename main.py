@@ -3,6 +3,7 @@ import re
 import oracledb
 import requests
 import pandas as pd
+import json
 from datetime import datetime, date
 os.system("cls" if os.name == "nt" else "clear")
 
@@ -765,14 +766,24 @@ def select_para_preview(_conexao: oracledb.Connection) -> tuple[bool, any]:
 # ========= IMPRIMIR LISTA COMO TABELA =========
 def imprimir_lista_como_tabela(lista_resultados: list[dict]) -> None:
     """
-    Recebe uma lista de dicionários e imprime em formato de tabela organizada usando pandas.
+    Recebe uma lista de dicionários e imprime em formato de tabela organizada usando pandas,
+    deixando a saída mais bonita.
     """
     if not lista_resultados:
         print("Nenhum registro encontrado.")
         return
 
-    df = pd.DataFrame(lista_resultados)
-    print(df.to_string(index=False))
+    largura_campo = 18
+
+    print(f"{'CAMPO':<{largura_campo}} | VALOR")
+    print("-"* 30)
+
+    for item in lista_resultados:
+
+        for chave, valor in item.items():
+            print(f"{chave:<{largura_campo}} | {valor}")
+
+        print("")
 
 # ========= IMPRIMIR LISTA NORMAL =========
 def imprimir_lista_simples(lista_resultados: list[dict]) -> None:
@@ -780,13 +791,16 @@ def imprimir_lista_simples(lista_resultados: list[dict]) -> None:
         print("Nenhum registro encontrado.")
         return
 
-    print("index | Dados")
+    print(f"{'INDEX':<7} | {'CAMPO':<20} | VALOR")
+    imprimir_linha_separadora("-", 60)
 
     contador = 1  # contador global de campos
     for item in lista_resultados:
         for chave, valor in item.items():
-            print(f"{contador} - {chave}: {valor}")
+            print(f"{contador:<7} | {chave:<20} | {valor}")
             contador += 1
+
+    imprimir_linha_separadora("-", 60)
 
 # ========= UPDATE POR ID =========
 def atualizar_dados_empresa_por_id(_conexao: oracledb.Connection, _index: int, id_empresa: int) -> tuple[bool, any]:
@@ -906,6 +920,33 @@ def atualizar_dados_empresa_por_id(_conexao: oracledb.Connection, _index: int, i
     except Exception as e:
         return False, str(e)
 
+# ==========================================================
+#   EXPORTAR PARA JSON
+# ==========================================================
+
+# ========= EXPORTAR PACIENTES PARA JSON =========
+def exportar_para_json(_dados: list[dict], _nome_arquivo: str = "empresa.json") -> tuple[bool, any]:
+    try:
+        if not _dados:
+            return (False, "Nenhum dado recebido para exportar.")
+        
+
+        for item in _dados:
+            for chave, valor in item.items():
+                if isinstance(valor, datetime):
+                    item[chave] = valor.strftime("%d/%m/%Y %H:%M")
+                elif isinstance(valor, date):
+                    item[chave] = valor.strftime("%d/%m/%Y")
+
+        # Salva os dados em um arquivo JSON
+        with open(_nome_arquivo, "w", encoding="utf-8") as arquivo_json:
+            json.dump(_dados, arquivo_json, ensure_ascii=False, indent=4)
+
+        return (True, None)
+
+    except Exception as e:
+        return (False, e)
+    
 # ========================================
 #   CONEXÃO COM O BANCO DE DADOS ORACLE
 # ========================================
@@ -945,11 +986,9 @@ while ok:
     print("2 - Consultar empresas cadastradas")
     print("3 - Atualizar informações de uma empresa")
     print("4 - Remover cadastro de empresa")
-    print("5 - Limpar todos os registros de empresas")
-    print("6 - Exportar registros para JSON")
     print("0 - Sair do sistema")
 
-    escolha_menu_principal = obter_int_intervalado("Escolha: ", "Entrada inválida.", 0, 6)
+    escolha_menu_principal = obter_int_intervalado("Escolha: ", "Entrada inválida.", 0, 4)
 
     match escolha_menu_principal:
 
@@ -1049,7 +1088,7 @@ while ok:
             print("\nCadastro concluído com sucesso!")
             input("\nAperte ENTER para voltar ao menu principal...")
 
-        case 2: # 2 - Consultar empresas cadastradas
+        case 2:  # 2 - Consultar empresas cadastradas
             limpar_terminal()
             exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
 
@@ -1058,50 +1097,140 @@ while ok:
                 "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
             )
 
-            limpar_terminal()
-            exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
-
             if not deseja_continuar:
                 limpar_terminal()
-                print("Pesquisa cancelado pelo usuário.\n")
+                print("Pesquisa cancelada pelo usuário.\n")
                 input("\nAperte ENTER para voltar ao menu principal...")
                 continue  # volta ao menu
 
-            # Pergunta se deseja consultar uma empresa específica ou todas
-            opcao_consulta = obter_sim_nao(
-                "Deseja consultar uma empresa específica pelo ID? (S/N): ",
-                "Entrada inválida! Digite S para Sim ou N para Não."
+            limpar_terminal()
+            exibir_titulo_centralizado("ESCOLHA O SEU TIPO DE PESQUISA", 60)
+
+            print("1 - Pesquisa genérica (escreva o que quiser)")
+            print("2 - Pesquisa por ID de empresa")
+            print("3 - Pesquisa geral\n")
+
+            # Pergunta qual tipo de pesquisa será feita
+            tipo_pesquisa = obter_int(
+                "Escolha: ",
+                "Entrada inválida! Digite um número entre 1 e 3."
             )
 
-            if opcao_consulta:  # Consulta por ID
-                # Mostra preview de todas as empresas (ID e Nome) antes de digitar
-                ok_preview, preview_empresas = select_para_preview(conn)
-                if ok_preview and preview_empresas:
-                    print("\nPreview das empresas cadastradas (ID e Nome):")
-                    imprimir_lista_como_tabela(preview_empresas)
-                else:
-                    print("\nNenhuma empresa encontrada para preview.")
+            limpar_terminal()
+            exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
 
-                # Solicita o ID após o preview
-                id_empresa = obter_int(
-                    "\nDigite o ID da empresa que deseja consultar: ",
-                    "Entrada inválida! Digite apenas números."
-                )
-                ok_sel, resultado = select_empresa_por_id(conn, id_empresa)
+            match tipo_pesquisa:
 
-            else:  # Consulta todas as empresas completas
-                ok_sel, resultado = select_todas_empresas_completas(conn)
+                case 1: # PESQUISA GENÉRICA
+                    limpar_terminal()
+                    exibir_titulo_centralizado("PESQUISA GENÉRICA", 60)
+                    print("\nFunção em manutenção. Em breve disponível!\n")
+                    input("\nAperte ENTER para voltar ao menu principal...")
 
-            if not ok_sel:
-                print("\nErro ao consultar o banco de dados:")
-                print(resultado)
-            else:
-                limpar_terminal()
-                exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
-                imprimir_lista_como_tabela(resultado)
+                    deseja_exportar = obter_sim_nao(
+                        "\nDeseja exportar essa consulta para um arquivo JSON? (S/N): ",
+                        "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+                    )
 
-            input("\nAperte ENTER para voltar ao menu principal...")
+                    if deseja_exportar:
+                        nome_arquivo = input(
+                            "\nDigite o nome do arquivo (ex: empresa.json): "
+                        ).strip()
 
+                        if not nome_arquivo:
+                            nome_arquivo = "empresa.json"
+                        elif not nome_arquivo.lower().endswith(".json"):
+                            nome_arquivo += ".json"
+
+                        sucesso_export, erro_export = exportar_para_json(resultado, nome_arquivo)
+                        if sucesso_export:
+                            print(f"\nConsulta exportada com sucesso para '{nome_arquivo}'!")
+                        else:
+                            print(f"\nErro ao exportar para JSON: {erro_export}")
+                
+                    input("\nAperte ENTER para voltar ao menu principal...")
+
+                case 2: # PESQUISA POR ID DE EMPRESA
+                    limpar_terminal()
+                    exibir_titulo_centralizado("PESQUISA POR ID DE EMPRESA", 60)
+                    ok_preview, preview_empresas = select_para_preview(conn)
+
+                    if ok_preview and preview_empresas:
+                        print("\nPreview das empresas cadastradas:\n")
+                        imprimir_lista_como_tabela(preview_empresas)
+                    else:
+                        print("\nNenhuma empresa encontrada para preview.")
+
+                    id_empresa = obter_int(
+                        "\nDigite o ID da empresa que deseja consultar: ",
+                        "Entrada inválida! Digite apenas números."
+                    )
+
+                    ok_sel, resultado = select_empresa_por_id(conn, id_empresa)
+
+                    if not ok_sel:
+                        print("\nErro ao consultar empresa por ID:")
+                        print(resultado)
+                    else:
+                        limpar_terminal()
+                        exibir_titulo_centralizado("PESQUISA POR ID DE EMPRESA", 60)
+                        imprimir_lista_simples(resultado)
+
+                    deseja_exportar = obter_sim_nao(
+                        "\nDeseja exportar essa consulta para um arquivo JSON? (S/N): ",
+                        "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+                    )
+
+                    if deseja_exportar:
+                        nome_arquivo = input(
+                            "\nDigite o nome do arquivo (ex: empresa.json): "
+                        ).strip()
+
+                        if not nome_arquivo:
+                            nome_arquivo = "empresa.json"
+                        elif not nome_arquivo.lower().endswith(".json"):
+                            nome_arquivo += ".json"
+
+                        sucesso_export, erro_export = exportar_para_json(resultado, nome_arquivo)
+                        if sucesso_export:
+                            print(f"\nConsulta exportada com sucesso para '{nome_arquivo}'!")
+                        else:
+                            print(f"\nErro ao exportar para JSON: {erro_export}")
+                
+                    input("\nAperte ENTER para voltar ao menu principal...")
+
+                case 3: # PESQUISA GERAL
+                    ok_sel, resultado = select_todas_empresas_completas(conn)
+
+                    if not ok_sel:
+                        print("\nErro ao consultar todas as empresas:")
+                        print(resultado)
+                    else:
+                        imprimir_lista_como_tabela(resultado)
+
+                    deseja_exportar = obter_sim_nao(
+                        "\nDeseja exportar essa consulta para um arquivo JSON? (S/N): ",
+                        "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+                    )
+
+                    if deseja_exportar:
+                        nome_arquivo = input(
+                            "\nDigite o nome do arquivo (ex: empresa.json): "
+                        ).strip()
+
+                        if not nome_arquivo:
+                            nome_arquivo = "empresa.json"
+                        elif not nome_arquivo.lower().endswith(".json"):
+                            nome_arquivo += ".json"
+
+                        sucesso_export, erro_export = exportar_para_json(resultado, nome_arquivo)
+                        if sucesso_export:
+                            print(f"\nConsulta exportada com sucesso para '{nome_arquivo}'!")
+                        else:
+                            print(f"\nErro ao exportar para JSON: {erro_export}")
+                
+                    input("\nAperte ENTER para voltar ao menu principal...")
+            
         case 3:  # 3 - Atualizar informações de uma empresa
             limpar_terminal()
             exibir_titulo_centralizado("ATUALIZAR INFORMAÇÕES DE EMPRESA", 60)
@@ -1120,7 +1249,9 @@ while ok:
             # Preview das empresas
             ok_preview, preview_empresas = select_para_preview(conn)
             if ok_preview and preview_empresas:
-                print("\nPreview das empresas cadastradas (ID e Nome):")
+                limpar_terminal()
+                exibir_titulo_centralizado("ATUALIZAR INFORMAÇÕES DE EMPRESA", 60)
+                print("\nPreview das empresas cadastradas:\n")
                 imprimir_lista_como_tabela(preview_empresas)
             else:
                 print("\nNenhuma empresa encontrada para preview.")
@@ -1167,21 +1298,8 @@ while ok:
 
             input("\nAperte ENTER para voltar ao menu principal...")
 
-
-        case 4:
+        case 3:
             limpar_terminal()
             exibir_titulo_centralizado("REMOVER CADASTRO DE EMPRESA", 60)
-            print("\nFunção em manutenção. Em breve disponível!\n")
-            input("\nAperte ENTER para voltar ao menu principal...")
-
-        case 5:
-            limpar_terminal()
-            exibir_titulo_centralizado("LIMPAR TODOS OS REGISTROS", 60)
-            print("\nFunção em manutenção. Em breve disponível!\n")
-            input("\nAperte ENTER para voltar ao menu principal...")
-
-        case 6:
-            limpar_terminal()
-            exibir_titulo_centralizado("EXPORTAR REGISTROS PARA JSON", 60)
             print("\nFunção em manutenção. Em breve disponível!\n")
             input("\nAperte ENTER para voltar ao menu principal...")
