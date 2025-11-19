@@ -1,11 +1,11 @@
 import os
 import re
+import json
+from datetime import datetime, date
+
 import oracledb
 import requests
 import pandas as pd
-import json
-from datetime import datetime, date
-os.system("cls" if os.name == "nt" else "clear")
 
 # ==========================================================
 #   SUBALGORITMOS
@@ -516,7 +516,6 @@ def conectar_oracledb(_user: str, _password: str, _dsn: str) -> tuple[bool, any]
     
     return retorno
 
-
 # ========= INSERT  =========
 def insert_endereco(_conexao: oracledb.Connection, _dados_endereco: dict) -> tuple[bool, any]:
     """
@@ -765,24 +764,28 @@ def select_para_preview(_conexao: oracledb.Connection) -> tuple[bool, any]:
         return False, str(e)
 
 # ========= SELECT GENÉRICO COM PANDAS =========
-def select_para_generico(_conexao, _tabelas, _colunas, _parametro):
+def select_para_generico(_conexao, _parametro, _tabelas_colunas):
+    """
+    Busca um valor genérico em várias tabelas e colunas específicas.
+    Retorna: (True, lista de dicionários) ou (False, mensagem de erro)
+    """
     lista_resultados = []
 
     try:
-        for tabela in _tabelas:
-            for col in _colunas:
-                sql = f"SELECT * FROM {tabela} WHERE {col} LIKE ?"
+        for tabela, cols in _tabelas_colunas.items():
+            for col in cols:
+                sql = f"SELECT * FROM {tabela} WHERE {col} LIKE :param"
                 
                 cursor = _conexao.cursor()
-                cursor.execute(sql, ('%' + _parametro + '%',))
+                cursor.execute(sql, {'param': f'%{_parametro}%'})
                 dados = cursor.fetchall()
-                
+
                 if dados:
                     colunas_cursor = [c[0].lower() for c in cursor.description]
                     df = pd.DataFrame(dados, columns=colunas_cursor)
                     df.insert(0, 'tabela', tabela)  # adiciona o nome da tabela como coluna
                     lista_resultados.extend(df.to_dict(orient='records'))
-                
+
                 cursor.close()
 
         return True, lista_resultados
@@ -861,92 +864,237 @@ def atualizar_dados_empresa_por_id(_conexao: oracledb.Connection, _index: int, i
             return False, "Empresa não encontrada ou erro ao consultar."
         dados_empresa = dados_empresa[0]  # pega o primeiro registro (único ID)
 
-        # Garantir que id_login e id_endereco estejam presentes
+        # Buscar IDs relacionados
         cur = _conexao.cursor()
-        if "id_login" not in dados_empresa or not dados_empresa.get("id_login"):
-            cur.execute(
-                "SELECT id_login FROM T_LVUP_LOGIN WHERE login = :login",
-                {"login": dados_empresa.get("login")}
-            )
-            row = cur.fetchone()
-            dados_empresa["id_login"] = row[0] if row else None
-
-        if "id_endereco" not in dados_empresa or not dados_empresa.get("id_endereco"):
-            # Supõe que T_EMPRESA tem a coluna id_endereco
-            dados_empresa["id_endereco"] = dados_empresa.get("id_endereco")
-
+        
+        # Busca id_login e id_endereco da empresa
+        cur.execute("""
+            SELECT id_login, id_endereco 
+            FROM T_EMPRESA 
+            WHERE id_empresa = :id_empresa
+        """, {"id_empresa": id_empresa})
+        
+        resultado = cur.fetchone()
+        if not resultado:
+            cur.close()
+            return False, "IDs relacionados não encontrados."
+        
+        id_login, id_endereco = resultado
+        dados_empresa["id_login"] = id_login
+        dados_empresa["id_endereco"] = id_endereco
+        
         cur.close()
 
         # Atualiza o campo escolhido
+        novo_valor = None
+        campo_nome = ""
+        
         match _index:
             case 1:
                 return False, "Não é possível atualizar o ID."
             case 2:
-                dados_empresa["nm_empresa"] = obter_texto("Nome da Empresa: ", "Entrada inválida. O campo não pode ficar vazio")
+                campo_nome = "Nome da Empresa"
+                novo_valor = obter_texto("Novo nome da empresa: ", "Entrada inválida. O campo não pode ficar vazio")
+                dados_empresa["nm_empresa"] = novo_valor
             case 3:
-                dados_empresa["cnpj_empresa"] = obter_cnpj("CNPJ da Empresa (ex: 00.000.000/0000-00): ", "Entrada inválida. Digite um CNPJ com 14 números.")
+                campo_nome = "CNPJ"
+                novo_valor = obter_cnpj("Novo CNPJ da empresa (ex: 00.000.000/0000-00): ", "Entrada inválida. Digite um CNPJ com 14 números.")
+                dados_empresa["cnpj_empresa"] = novo_valor
             case 4:
-                dados_empresa["email_empresa"] = obter_email("E-mail da Empresa: ","Formato de e-mail incorreto. Digite um e-mail válido.")
+                campo_nome = "E-mail"
+                novo_valor = obter_email("Novo e-mail da empresa: ", "Formato de e-mail incorreto. Digite um e-mail válido.")
+                dados_empresa["email_empresa"] = novo_valor
             case 5:
-                dados_empresa["dt_cadastro"] = datetime.now()
+                campo_nome = "Data de Cadastro"
+                novo_valor = datetime.now()
+                dados_empresa["dt_cadastro"] = novo_valor
             case 6:
-                dados_empresa["st_empresa"] = "A" if obter_sim_nao("Empresa está ativa (S/N)? ", "Erro!") else "I"
+                campo_nome = "Status da Empresa"
+                novo_valor = "A" if obter_sim_nao("Empresa está ativa? (S/N): ", "Entrada inválida! Digite 'S' para Sim ou 'N' para Não.") else "I"
+                dados_empresa["st_empresa"] = novo_valor
             case 7:
-                dados_empresa["login"] = obter_texto("Digite o login (ex: seu.usuario): ","Entrada inválida. O campo não pode ficar vazio")
+                campo_nome = "Login"
+                novo_valor = obter_texto("Novo login: ", "Entrada inválida. O campo não pode ficar vazio")
+                dados_empresa["login"] = novo_valor
             case 8:
-                dados_empresa["st_login"] = "S" if obter_sim_nao("Login está ativo (S/N)? ", "Erro!") else "N"
+                campo_nome = "Status do Login"
+                novo_valor = "S" if obter_sim_nao("Login está ativo? (S/N): ", "Entrada inválida! Digite 'S' para Sim ou 'N' para Não.") else "N"
+                dados_empresa["st_login"] = novo_valor
             case 9:
-                endereco = obter_endereco("Digite o CEP (ex: 01310200): ", "CEP inválido!")
-                dados_empresa["cep"] = endereco["cep"]
+                campo_nome = "CEP"
+                endereco = obter_endereco("Novo CEP (ex: 01310200): ", "CEP inválido! Digite um CEP com 8 números.")
+                novo_valor = endereco["cep"]
+                dados_empresa["cep"] = novo_valor
+                # Atualiza também outros campos do endereço se CEP mudar
+                dados_empresa["pais"] = endereco.get("pais", "BRA")
+                dados_empresa["estado"] = endereco.get("estado", "")
+                dados_empresa["cidade"] = endereco.get("cidade", "")
+                dados_empresa["bairro"] = endereco.get("bairro", "")
+                dados_empresa["rua"] = endereco.get("logradouro", "")
             case 10:
-                dados_empresa["pais"] = obter_texto("País (ex: BRA): ", "Entrada inválida. O campo não pode ficar vazio")
+                campo_nome = "País"
+                novo_valor = obter_texto("Novo país (ex: BRA): ", "Entrada inválida. O campo não pode ficar vazio")
+                dados_empresa["pais"] = novo_valor
             case 11:
-                dados_empresa["estado"] = obter_texto("Estado (ex: SP): ", "Entrada inválida. O campo não pode ficar vazio")
+                campo_nome = "Estado"
+                novo_valor = obter_texto("Novo estado (ex: SP): ", "Entrada inválida. O campo não pode ficar vazio")
+                dados_empresa["estado"] = novo_valor
             case 12:
-                dados_empresa["cidade"] = obter_texto("Cidade: ", "Entrada inválida. O campo não pode ficar vazio")
+                campo_nome = "Cidade"
+                novo_valor = obter_texto("Nova cidade: ", "Entrada inválida. O campo não pode ficar vazio")
+                dados_empresa["cidade"] = novo_valor
             case 13:
-                dados_empresa["bairro"] = obter_texto("Bairro: ", "Entrada inválida. O campo não pode ficar vazio")
+                campo_nome = "Bairro"
+                novo_valor = obter_texto("Novo bairro: ", "Entrada inválida. O campo não pode ficar vazio")
+                dados_empresa["bairro"] = novo_valor
             case 14:
-                dados_empresa["rua"] = obter_texto("Rua: ", "Entrada inválida. O campo não pode ficar vazio")
+                campo_nome = "Rua"
+                novo_valor = obter_texto("Nova rua: ", "Entrada inválida. O campo não pode ficar vazio")
+                dados_empresa["rua"] = novo_valor
             case 15:
-                dados_empresa["numero"] = obter_int("Número: ", "Entrada inválida. Digite apenas números.")
+                campo_nome = "Número"
+                novo_valor = obter_int("Novo número: ", "Entrada inválida. Digite apenas números.")
+                dados_empresa["numero"] = novo_valor
             case 16:
-                dados_empresa["complemento"] = obter_texto("Complemento: ", "Entrada inválida. O campo não pode ficar vazio")
+                campo_nome = "Complemento"
+                novo_valor = obter_texto("Novo complemento: ", "Entrada inválida. O campo não pode ficar vazio")
+                dados_empresa["complemento"] = novo_valor
             case _:
                 return False, "Campo inválido!"
 
         # Atualização no banco de dados
         cur = _conexao.cursor()
+        _conexao.autocommit = False
 
-        # Atualiza apenas o campo escolhido na T_EMPRESA
-        campos_empresa_map = {2: "nm_empresa", 3: "cnpj_empresa", 4: "email_empresa", 5: "dt_cadastro", 6: "st_empresa"}
-        if _index in campos_empresa_map:
-            campo_sql = campos_empresa_map[_index]
-            sql = f"UPDATE T_EMPRESA SET {campo_sql} = :valor WHERE id_empresa = :id_empresa"
-            cur.execute(sql, {"valor": dados_empresa[campo_sql], "id_empresa": id_empresa})
+        try:
+            # Atualiza apenas o campo escolhido na T_EMPRESA
+            campos_empresa_map = {
+                2: "nm_empresa", 
+                3: "cnpj_empresa", 
+                4: "email_empresa", 
+                5: "dt_cadastro", 
+                6: "st_empresa"
+            }
+            if _index in campos_empresa_map:
+                campo_sql = campos_empresa_map[_index]
+                if _index == 5:  # Data de cadastro
+                    sql = f"UPDATE T_EMPRESA SET {campo_sql} = SYSDATE WHERE id_empresa = :id_empresa"
+                    cur.execute(sql, {"id_empresa": id_empresa})
+                else:
+                    sql = f"UPDATE T_EMPRESA SET {campo_sql} = :valor WHERE id_empresa = :id_empresa"
+                    cur.execute(sql, {"valor": novo_valor, "id_empresa": id_empresa})
 
-        # Atualiza login
-        campos_login_map = {7: "login", 8: "st_login"}
-        if _index in campos_login_map:
-            campo_sql = campos_login_map[_index]
-            sql_login = f"UPDATE T_LVUP_LOGIN SET {campo_sql if campo_sql != 'st_login' else 'st_ativo'} = :valor WHERE id_login = :id_login"
-            cur.execute(sql_login, {"valor": dados_empresa[campo_sql], "id_login": dados_empresa["id_login"]})
+            # Atualiza login
+            campos_login_map = {7: "login", 8: "st_ativo"}
+            if _index in [7, 8]:
+                campo_sql = campos_login_map[_index]
+                sql_login = f"UPDATE T_LVUP_LOGIN SET {campo_sql} = :valor WHERE id_login = :id_login"
+                cur.execute(sql_login, {"valor": novo_valor, "id_login": id_login})
 
-        # Atualiza endereço
-        campos_end_map = {9: "cep", 10: "pais", 11: "estado", 12: "cidade", 13: "bairro", 14: "rua", 15: "numero", 16: "complemento"}
-        if _index in campos_end_map:
-            campo_sql = campos_end_map[_index]
-            sql_end = f"UPDATE T_ENDERECO SET {campo_sql} = :valor WHERE id_endereco = :id_endereco"
-            cur.execute(sql_end, {"valor": dados_empresa[campo_sql], "id_endereco": dados_empresa["id_endereco"]})
+            # Atualiza endereço
+            campos_end_map = {
+                9: "cep", 10: "pais", 11: "estado", 12: "cidade", 
+                13: "bairro", 14: "rua", 15: "numero", 16: "complemento"
+            }
+            if _index in campos_end_map:
+                campo_sql = campos_end_map[_index]
+                sql_end = f"UPDATE T_ENDERECO SET {campo_sql} = :valor WHERE id_endereco = :id_endereco"
+                cur.execute(sql_end, {"valor": novo_valor, "id_endereco": id_endereco})
+                
+                # Se for CEP, atualiza todos os campos do endereço
+                if _index == 9:
+                    campos_endereco = ["pais", "estado", "cidade", "bairro", "rua"]
+                    for campo in campos_endereco:
+                        if campo in dados_empresa:
+                            sql_end = f"UPDATE T_ENDERECO SET {campo} = :valor WHERE id_endereco = :id_endereco"
+                            cur.execute(sql_end, {"valor": dados_empresa[campo], "id_endereco": id_endereco})
 
-        _conexao.commit()
-        cur.close()
+            _conexao.commit()
+            cur.close()
+            
+            # Recupera os dados atualizados para retornar
+            ok, dados_atualizados = select_empresa_por_id(_conexao, id_empresa)
+            if ok and dados_atualizados:
+                return True, dados_atualizados[0]
+            else:
+                return True, dados_empresa  # Retorna pelo menos os dados que temos
 
-        return True, dados_empresa
-
+        except Exception as e:
+            _conexao.rollback()
+            cur.close()
+            return False, f"Erro ao atualizar no banco: {str(e)}"
+            
     except Exception as e:
-        return False, str(e)
+        return False, f"Erro geral: {str(e)}"
+    finally:
+        _conexao.autocommit = True
 
+# ========= EXCLUIR EMPRESA POR ID =========
+def excluir_empresa_por_id(_conexao: oracledb.Connection, _id_empresa: int) -> tuple[bool, any]:
+    """
+    Exclui uma empresa e seus dados relacionados (login e endereço) pelo ID.
+    Retorna (True, mensagem_sucesso) ou (False, erro)
+    """
+    try:
+        # Primeiro, recupera os IDs relacionados
+        cur = _conexao.cursor()
+        
+        # Busca id_login e id_endereco da empresa
+        cur.execute("""
+            SELECT id_login, id_endereco 
+            FROM T_EMPRESA 
+            WHERE id_empresa = :id_empresa
+        """, {"id_empresa": _id_empresa})
+        
+        resultado = cur.fetchone()
+        
+        if not resultado:
+            cur.close()
+            return False, "Empresa não encontrada."
+        
+        id_login, id_endereco = resultado
+        
+        # Inicia transação
+        _conexao.autocommit = False
+        
+        try:
+            # 1. Exclui a empresa
+            cur.execute(
+                "DELETE FROM T_EMPRESA WHERE id_empresa = :id_empresa",
+                {"id_empresa": _id_empresa}
+            )
+            
+            # 2. Exclui o login (se existir e não estiver sendo usado por outras tabelas)
+            if id_login:
+                cur.execute(
+                    "DELETE FROM T_LVUP_LOGIN WHERE id_login = :id_login",
+                    {"id_login": id_login}
+                )
+            
+            # 3. Exclui o endereço (se existir e não estiver sendo usado por outras tabelas)
+            if id_endereco:
+                cur.execute(
+                    "DELETE FROM T_ENDERECO WHERE id_endereco = :id_endereco",
+                    {"id_endereco": id_endereco}
+                )
+            
+            # Confirma a transação
+            _conexao.commit()
+            cur.close()
+            
+            return True, f"Empresa ID {_id_empresa} excluída com sucesso!"
+            
+        except Exception as e:
+            # Rollback em caso de erro
+            _conexao.rollback()
+            cur.close()
+            return False, f"Erro durante a exclusão: {str(e)}"
+            
+    except Exception as e:
+        return False, f"Erro ao processar exclusão: {str(e)}"
+    finally:
+        # Restaura autocommit
+        _conexao.autocommit = True
 # ==========================================================
 #   EXPORTAR PARA JSON
 # ==========================================================
@@ -994,15 +1142,13 @@ else:
     exibir_titulo_centralizado("❌ ERRO AO CONECTAR AO BANCO DE DADOS", 60)
     print(f"Detalhes do erro:\n{conn}\n")
     input("Aperte ENTER para encerrar o programa...")
-
-
-# ok = False
+    exit()
 
 # ========================================
 #   MENU PRINCIPAL
 # ========================================
 
-while ok:
+while True:
     limpar_terminal()
     exibir_titulo_centralizado("LEVEL UP - PORTAL DE EMPRESAS E DEMANDAS", 60)
 
@@ -1016,14 +1162,14 @@ while ok:
 
     match escolha_menu_principal:
 
-        case 0: # 0 - Sair do sistema
+        case 0:  # Sair do sistema
             limpar_terminal()
             print("\nPrograma encerrado. Até logo!\n")
-            ok = False
+            break
 
-        case 1: # 1 - Cadastrar nova empresa
+        case 1:  # Cadastrar nova empresa
             limpar_terminal()
-            exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA — LOGIN", 60)
+            exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA", 60)
 
             print("\nAntes de continuar, precisamos solicitar algumas informações da empresa.\n")
 
@@ -1033,54 +1179,65 @@ while ok:
             )
 
             if not deseja_continuar:
-                limpar_terminal()
                 print("\nCadastro cancelado pelo usuário.\n")
                 input("\nAperte ENTER para voltar ao menu principal...")
-                continue  # volta ao menu
+                continue
+
+            # FLUXO DE CADASTRO
+            dados_coletados = {}
             
+            # 1. SOLICITAR LOGIN
             limpar_terminal()
             exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA — LOGIN", 60)
-            # ---------------------------
-            # 1. SOLICITAR LOGIN
-            # ---------------------------
             sucesso_login, dados_login = solicitar_dados_t_lvup_login()
             if not sucesso_login:
                 print("\nErro ao coletar dados de login:")
                 print(dados_login)
                 input("\nAperte ENTER para voltar ao menu principal...")
                 continue
+            dados_coletados['login'] = dados_login
 
-
-            # ---------------------------
             # 2. SOLICITAR ENDEREÇO
-            # ---------------------------
             limpar_terminal()
             exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA — ENDEREÇO", 60)
-
             sucesso_end, dados_endereco = solicitar_dados_endereco()
             if not sucesso_end:
                 print("\nErro ao coletar dados de endereço:")
                 print(dados_endereco)
                 input("\nAperte ENTER para voltar ao menu principal...")
                 continue
+            dados_coletados['endereco'] = dados_endereco
 
-
-            # ---------------------------
             # 3. SOLICITAR DADOS DA EMPRESA
-            # ---------------------------
             limpar_terminal()
             exibir_titulo_centralizado("CADASTRAR NOVA EMPRESA — DADOS DA EMPRESA", 60)
-
             sucesso_emp, dados_empresa = solicitar_dados_t_empresa()
             if not sucesso_emp:
                 print("\nErro ao coletar dados da empresa:")
                 print(dados_empresa)
                 input("\nAperte ENTER para voltar ao menu principal...")
                 continue
+            dados_coletados['empresa'] = dados_empresa
 
-            # ---------------------------
-            # 4. INSERIR TUDO NO BANCO DE DADOS
-            # ---------------------------
+            # 4. CONFIRMAR CADASTRO
+            limpar_terminal()
+            exibir_titulo_centralizado("CONFIRMAR CADASTRO", 60)
+            print("\nResumo dos dados coletados:")
+            print(f"Login: {dados_login}")
+            print(f"Endereço: {dados_endereco}")
+            print(f"Empresa: {dados_empresa}")
+            
+            confirmar = obter_sim_nao(
+                "\nConfirmar cadastro? (S/N): ",
+                "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+            )
+            
+            if not confirmar:
+                print("\nCadastro cancelado pelo usuário.\n")
+                input("\nAperte ENTER para voltar ao menu principal...")
+                continue
+
+            # 5. INSERIR NO BANCO DE DADOS
             limpar_terminal()
             exibir_titulo_centralizado("PROCESSANDO CADASTRO...", 60)
 
@@ -1109,246 +1266,275 @@ while ok:
                 continue
 
             # SUCESSO FINAL
-            print("\nCadastro concluído com sucesso!")
+            print("\n✅ Cadastro concluído com sucesso!")
+            print(f"ID da empresa: {id_empresa}")
             input("\nAperte ENTER para voltar ao menu principal...")
 
-        case 2:  # 2 - Consultar empresas cadastradas
-            limpar_terminal()
-            exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
-
-            deseja_continuar = obter_sim_nao(
-                "Deseja fazer uma pesquisa? (S/N): ",
-                "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
-            )
-
-            if not deseja_continuar:
+        case 2:  # Consultar empresas cadastradas
+            while True:
                 limpar_terminal()
-                print("Pesquisa cancelada pelo usuário.\n")
-                input("\nAperte ENTER para voltar ao menu principal...")
-                continue  # volta ao menu
+                exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
 
-            limpar_terminal()
-            exibir_titulo_centralizado("ESCOLHA O SEU TIPO DE PESQUISA", 60)
+                print("1 - Pesquisa genérica (escreva o que quiser)")
+                print("2 - Pesquisa por ID de empresa")
+                print("3 - Pesquisa geral (todas as empresas)")
+                print("0 - Voltar ao menu principal\n")
 
-            print("1 - Pesquisa genérica (escreva o que quiser)")
-            print("2 - Pesquisa por ID de empresa")
-            print("3 - Pesquisa geral\n")
+                tipo_pesquisa = obter_int_intervalado(
+                    "Escolha o tipo de pesquisa: ",
+                    "Entrada inválida! Digite um número entre 0 e 3.",
+                    0, 3
+                )
 
-            # Pergunta qual tipo de pesquisa será feita
-            tipo_pesquisa = obter_int(
-                "Escolha: ",
-                "Entrada inválida! Digite um número entre 1 e 3."
-            )
+                if tipo_pesquisa == 0:
+                    break
 
-            limpar_terminal()
-            exibir_titulo_centralizado("CONSULTAR EMPRESAS CADASTRADAS", 60)
-
-            match tipo_pesquisa:
-
-                case 1: # PESQUISA GENÉRICA
-                    limpar_terminal()
-                    exibir_titulo_centralizado("PESQUISA GENÉRICA", 60)
-
-                    # tabelas que queremos buscar
-                    tabelas = ["T_EMPRESA", "T_LVUP_LOGIN", "T_ENDERECO"]
-
-                    # colunas que queremos pesquisar
-                    colunas = [
-                        "nm_empresa", "cnpj_empresa", "email_empresa",  # T_EMPRESA
-                        "login", "senha",                                # T_LVUP_LOGIN
-                        "cep", "pais", "estado", "cidade", "bairro", "rua", "complemento"  # T_ENDERECO
-                    ]
-
-                    # valor que queremos buscar
-                    parametro = obter_texto("Escreva o valor para buscar: ", "Entrada inválida. O campo não pode ficar vazio.")
-
-                    # executa a busca
-                    ok, resultados = select_para_generico(conn, tabelas, colunas, parametro)
-
-                    if ok:
-                        print("Resultados encontrados:")
-                        for r in resultados:
-                            print(r)
-                    else:
-                        print("Erro:", resultados)
-
-                    deseja_exportar = obter_sim_nao(
-                        "\nDeseja exportar essa consulta para um arquivo JSON? (S/N): ",
-                        "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
-                    )
-
-                    # -----------------------
-                    if deseja_exportar:
-                        nome_arquivo = input(
-                            "\nDigite o nome do arquivo (ex: empresa.json): "
-                        ).strip()
-
-                        if not nome_arquivo:
-                            nome_arquivo = "empresa.json"
-                        elif not nome_arquivo.lower().endswith(".json"):
-                            nome_arquivo += ".json"
-
-                        sucesso_export, erro_export = exportar_para_json(resultado, nome_arquivo)
-                        if sucesso_export:
-                            print(f"\nConsulta exportada com sucesso para '{nome_arquivo}'!")
-                        else:
-                            print(f"\nErro ao exportar para JSON: {erro_export}")
+                resultados = None
                 
-                    input("\nAperte ENTER para voltar ao menu principal...")
+                match tipo_pesquisa:
+                    case 1:  # PESQUISA GENÉRICA
+                        limpar_terminal()
+                        exibir_titulo_centralizado("PESQUISA GENÉRICA", 60)
+                        
+                        parametro = obter_texto(
+                            "Escreva o valor para buscar: ", 
+                            "Entrada inválida. O campo não pode ficar vazio."
+                        )
 
-                case 2: # PESQUISA POR ID DE EMPRESA
-                    limpar_terminal()
-                    exibir_titulo_centralizado("PESQUISA POR ID DE EMPRESA", 60)
-                    ok_preview, preview_empresas = select_para_preview(conn)
+                        tabelas_colunas = {
+                            "T_EMPRESA": ["nm_empresa", "cnpj_empresa", "email_empresa"],
+                            "T_LVUP_LOGIN": ["login", "senha"],
+                            "T_ENDERECO": ["cep", "pais", "estado", "cidade", "bairro", "rua", "complemento"]
+                        }
 
-                    if ok_preview and preview_empresas:
-                        print("\nPreview das empresas cadastradas:\n")
-                        imprimir_lista_como_tabela(preview_empresas)
-                    else:
-                        print("\nNenhuma empresa encontrada para preview.")
+                        ok, resultados = select_para_generico(conn, parametro, tabelas_colunas)
 
-                    id_empresa = obter_int(
-                        "\nDigite o ID da empresa que deseja consultar: ",
-                        "Entrada inválida! Digite apenas números."
-                    )
-
-                    ok_sel, resultado = select_empresa_por_id(conn, id_empresa)
-
-                    if not ok_sel:
-                        print("\nErro ao consultar empresa por ID:")
-                        print(resultado)
-                    else:
+                    case 2:  # PESQUISA POR ID
                         limpar_terminal()
                         exibir_titulo_centralizado("PESQUISA POR ID DE EMPRESA", 60)
-                        imprimir_lista_simples(resultado)
-
-                    deseja_exportar = obter_sim_nao(
-                        "\nDeseja exportar essa consulta para um arquivo JSON? (S/N): ",
-                        "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
-                    )
-
-                    if deseja_exportar:
-                        nome_arquivo = input(
-                            "\nDigite o nome do arquivo (ex: empresa.json): "
-                        ).strip()
-
-                        if not nome_arquivo:
-                            nome_arquivo = "empresa.json"
-                        elif not nome_arquivo.lower().endswith(".json"):
-                            nome_arquivo += ".json"
-
-                        sucesso_export, erro_export = exportar_para_json(resultado, nome_arquivo)
-                        if sucesso_export:
-                            print(f"\nConsulta exportada com sucesso para '{nome_arquivo}'!")
+                        
+                        # Preview das empresas
+                        ok_preview, preview_empresas = select_para_preview(conn)
+                        if ok_preview and preview_empresas:
+                            print("Empresas cadastradas:\n")
+                            imprimir_lista_como_tabela(preview_empresas)
                         else:
-                            print(f"\nErro ao exportar para JSON: {erro_export}")
-                
-                    input("\nAperte ENTER para voltar ao menu principal...")
+                            print("Nenhuma empresa encontrada para preview.")
 
-                case 3: # PESQUISA GERAL
-                    ok_sel, resultado = select_todas_empresas_completas(conn)
+                        id_empresa = obter_int(
+                            "\nDigite o ID da empresa que deseja consultar: ",
+                            "Entrada inválida! Digite apenas números."
+                        )
 
-                    if not ok_sel:
-                        print("\nErro ao consultar todas as empresas:")
-                        print(resultado)
-                    else:
-                        imprimir_lista_como_tabela(resultado)
+                        ok, resultados = select_empresa_por_id(conn, id_empresa)
 
-                    deseja_exportar = obter_sim_nao(
-                        "\nDeseja exportar essa consulta para um arquivo JSON? (S/N): ",
-                        "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
-                    )
+                    case 3:  # PESQUISA GERAL
+                        limpar_terminal()
+                        exibir_titulo_centralizado("PESQUISA GERAL", 60)
+                        ok, resultados = select_todas_empresas_completas(conn)
 
-                    if deseja_exportar:
-                        nome_arquivo = input(
-                            "\nDigite o nome do arquivo (ex: empresa.json): "
-                        ).strip()
-
-                        if not nome_arquivo:
-                            nome_arquivo = "empresa.json"
-                        elif not nome_arquivo.lower().endswith(".json"):
-                            nome_arquivo += ".json"
-
-                        sucesso_export, erro_export = exportar_para_json(resultado, nome_arquivo)
-                        if sucesso_export:
-                            print(f"\nConsulta exportada com sucesso para '{nome_arquivo}'!")
-                        else:
-                            print(f"\nErro ao exportar para JSON: {erro_export}")
-                
-                    input("\nAperte ENTER para voltar ao menu principal...")
-            
-        case 3:  # 3 - Atualizar informações de uma empresa
-            limpar_terminal()
-            exibir_titulo_centralizado("ATUALIZAR INFORMAÇÕES DE EMPRESA", 60)
-
-            deseja_continuar = obter_sim_nao(
-                "Deseja atualizar os dados? (S/N): ",
-                "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
-            )
-
-            if not deseja_continuar:
+                # EXIBIR RESULTADOS
                 limpar_terminal()
-                print("Atualização cancelada pelo usuário.\n")
-                input("\nAperte ENTER para voltar ao menu principal...")
-                continue  # volta ao menu
+                exibir_titulo_centralizado("RESULTADOS DA CONSULTA", 60)
+                
+                if not ok:
+                    print("Erro na consulta:")
+                    print(resultados)
+                elif not resultados:
+                    print("Nenhum resultado encontrado.")
+                else:
+                    if tipo_pesquisa == 2:
+                        imprimir_lista_simples(resultados)
+                    else:
+                        imprimir_lista_como_tabela(resultados)
 
-            # Preview das empresas
-            ok_preview, preview_empresas = select_para_preview(conn)
-            if ok_preview and preview_empresas:
+                # OPÇÃO DE EXPORTAÇÃO
+                if ok and resultados:
+                    deseja_exportar = obter_sim_nao(
+                        "\nDeseja exportar essa consulta para um arquivo JSON? (S/N): ",
+                        "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+                    )
+
+                    if deseja_exportar:
+                        nome_arquivo = input(
+                            "\nDigite o nome do arquivo (ex: consulta_empresas.json): "
+                        ).strip()
+
+                        if not nome_arquivo:
+                            nome_arquivo = "consulta_empresas.json"
+                        elif not nome_arquivo.lower().endswith(".json"):
+                            nome_arquivo += ".json"
+
+                        sucesso_export, erro_export = exportar_para_json(resultados, nome_arquivo)
+                        if sucesso_export:
+                            print(f"\n✅ Consulta exportada com sucesso para '{nome_arquivo}'!")
+                        else:
+                            print(f"\n❌ Erro ao exportar para JSON: {erro_export}")
+
+                # OPÇÃO DE NOVA CONSULTA
+                if tipo_pesquisa != 0:
+                    nova_consulta = obter_sim_nao(
+                        "\nDeseja fazer outra consulta? (S/N): ",
+                        "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+                    )
+                    if not nova_consulta:
+                        break
+
+        case 3:  # Atualizar informações de uma empresa
+            while True:
                 limpar_terminal()
                 exibir_titulo_centralizado("ATUALIZAR INFORMAÇÕES DE EMPRESA", 60)
-                print("\nPreview das empresas cadastradas:\n")
-                imprimir_lista_como_tabela(preview_empresas)
-            else:
-                print("\nNenhuma empresa encontrada para preview.")
 
-            # Solicita o ID da empresa
-            id_empresa = obter_int(
-                "\nDigite o ID da empresa que deseja atualizar: ",
-                "Entrada inválida! Digite apenas números."
-            )
+                # Preview das empresas
+                ok_preview, preview_empresas = select_para_preview(conn)
+                if ok_preview and preview_empresas:
+                    print("Empresas cadastradas:\n")
+                    imprimir_lista_como_tabela(preview_empresas)
+                else:
+                    print("Nenhuma empresa encontrada para atualização.")
+                    input("\nAperte ENTER para voltar ao menu principal...")
+                    break
 
-            ok_sel, resultado = select_empresa_por_id(conn, id_empresa)
-            if not ok_sel or not resultado:
-                print("\nErro ao consultar o banco de dados ou empresa não encontrada:")
-                print(resultado)
-                input("\nAperte ENTER para voltar ao menu principal...")
-                continue
+                # Solicita o ID da empresa
+                id_empresa = obter_int(
+                    "\nDigite o ID da empresa que deseja atualizar (0 para cancelar): ",
+                    "Entrada inválida! Digite apenas números."
+                )
 
-            # Mostra os dados atuais
-            limpar_terminal()
-            exibir_titulo_centralizado("DADOS ATUAIS DA EMPRESA", 60)
-            imprimir_lista_simples(resultado)
+                if id_empresa == 0:
+                    break
 
-            campo_escolhido = obter_int_intervalado(
-                "\nDigite o número do campo a atualizar: ",
-                "Entrada inválida! Digite um número válido.",
-                0, 16
-            )
+                # Consulta empresa específica
+                ok_sel, resultado = select_empresa_por_id(conn, id_empresa)
+                if not ok_sel or not resultado:
+                    print("\n❌ Empresa não encontrada ou erro na consulta.")
+                    input("\nAperte ENTER para tentar novamente...")
+                    continue
 
-            if campo_escolhido == 0:
-                print("\nAtualização cancelada pelo usuário.")
-                input("\nAperte ENTER para voltar ao menu principal...")
-                continue
-
-            # Chama a função de atualização
-            ok_atual, resultado_atual = atualizar_dados_empresa_por_id(conn, campo_escolhido, id_empresa)
-            if ok_atual:
+                # Mostra os dados atuais
                 limpar_terminal()
-                print("\nDados atualizados com sucesso!")
-                imprimir_lista_simples([resultado_atual])
-            else:
+                exibir_titulo_centralizado("DADOS ATUAIS DA EMPRESA", 60)
+                imprimir_lista_simples(resultado)
+
+                campo_escolhido = obter_int_intervalado(
+                    "\nDigite o número do campo a atualizar (0 para cancelar): ",
+                    "Entrada inválida! Digite um número válido entre 0 e 16.",
+                    0, 16
+                )
+
+                if campo_escolhido == 0:
+                    break
+
+                # Confirma a atualização
+                confirmar = obter_sim_nao(
+                    "\nConfirmar atualização deste campo? (S/N): ",
+                    "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+                )
+
+                if not confirmar:
+                    print("\nAtualização cancelada.")
+                    input("\nAperte ENTER para voltar...")
+                    continue
+
+                # Executa a atualização
+                ok_atual, resultado_atual = atualizar_dados_empresa_por_id(conn, campo_escolhido, id_empresa)
+                if ok_atual:
+                    limpar_terminal()
+                    exibir_titulo_centralizado("✅ DADOS ATUALIZADOS COM SUCESSO", 60)
+                    print("\nDados atualizados com sucesso!")
+                    
+                    # Mostra os dados atualizados
+                    ok_consulta, dados_atualizados = select_empresa_por_id(conn, id_empresa)
+                    if ok_consulta and dados_atualizados:
+                        print("\nDados atualizados da empresa:")
+                        imprimir_lista_simples(dados_atualizados)
+                    else:
+                        print("\nDados atualizados (visualização parcial):")
+                        imprimir_lista_simples([resultado_atual])
+                        
+                else:
+                    limpar_terminal()
+                    exibir_titulo_centralizado("❌ ERRO NA ATUALIZAÇÃO", 60)
+                    print(f"\nErro ao atualizar os dados: {resultado_atual}")
+
+                # Pergunta se deseja fazer outra atualização
+                outra_atualizacao = obter_sim_nao(
+                    "\nDeseja atualizar outro campo desta empresa? (S/N): ",
+                    "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+                )
+                if not outra_atualizacao:
+                    break
+
+        case 4:  # Remover cadastro de empresa
+            while True:
                 limpar_terminal()
-                print("\nErro ao atualizar os dados:")
-                print(resultado_atual)
+                exibir_titulo_centralizado("EXCLUIR CADASTRO DE EMPRESA", 60)
 
-            input("\nAperte ENTER para voltar ao menu principal...")
+                # Preview das empresas
+                ok_preview, preview_empresas = select_para_preview(conn)
+                if ok_preview and preview_empresas:
+                    print("Empresas cadastradas:\n")
+                    imprimir_lista_como_tabela(preview_empresas)
+                else:
+                    print("Nenhuma empresa encontrada para exclusão.")
+                    input("\nAperte ENTER para voltar ao menu principal...")
+                    break
 
-        case 3:
-            limpar_terminal()
-            exibir_titulo_centralizado("REMOVER CADASTRO DE EMPRESA", 60)
-            print("\nFunção em manutenção. Em breve disponível!\n")
-            input("\nAperte ENTER para voltar ao menu principal...")
+                # Solicita o ID da empresa
+                id_empresa = obter_int(
+                    "\nDigite o ID da empresa que deseja excluir (0 para cancelar): ",
+                    "Entrada inválida! Digite apenas números."
+                )
 
-if ok:
+                if id_empresa == 0:
+                    break
+
+                # Confirmação de segurança
+                limpar_terminal()
+                exibir_titulo_centralizado("CONFIRMAR EXCLUSÃO", 60)
+                
+                # Mostra dados da empresa que será excluída
+                ok_sel, resultado = select_empresa_por_id(conn, id_empresa)
+                if ok_sel and resultado:
+                    print("Dados da empresa que será excluída:\n")
+                    imprimir_lista_simples(resultado)
+                
+                print("\n⚠️  ATENÇÃO: Esta ação é IRREVERSÍVEL!")
+                print("Serão excluídos:")
+                print("• Dados da empresa")
+                print("• Login associado")
+                print("• Endereço associado")
+                
+                confirmar = obter_sim_nao(
+                    "\nTem certeza que deseja excluir esta empresa? (S/N): ",
+                    "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+                )
+
+                if not confirmar:
+                    print("\nExclusão cancelada.")
+                    input("\nAperte ENTER para voltar...")
+                    continue
+
+                # Executa a exclusão
+                ok_exclusao, resultado_exclusao = excluir_empresa_por_id(conn, id_empresa)
+                
+                if ok_exclusao:
+                    limpar_terminal()
+                    exibir_titulo_centralizado("✅ EMPRESA EXCLUÍDA COM SUCESSO", 60)
+                    print(f"\n{resultado_exclusao}")
+                else:
+                    limpar_terminal()
+                    exibir_titulo_centralizado("❌ ERRO NA EXCLUSÃO", 60)
+                    print(f"\n{resultado_exclusao}")
+
+                # Pergunta se deseja excluir outra empresa
+                outra_exclusao = obter_sim_nao(
+                    "\nDeseja excluir outra empresa? (S/N): ",
+                    "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
+                )
+                if not outra_exclusao:
+                    break
+
+# Fechar conexão ao sair
+if conn:
     conn.close()

@@ -1,0 +1,104 @@
+[
+    {
+        "tabela": "T_EMPRESA",
+        "id_empresa": 10,
+        "nm_empresa": "RH Solutions Treinamento",
+        "cnpj_empresa": "10.000.000/0001-10",
+        "email_empresa": "treinamento@rhsol.org",
+        "dt_cadastro": "05/10/2014 00:00",
+        "st_empresa": "A",
+        "id_endereco": 20,
+        "id_login": 20
+    },
+    {
+        "tabela": "T_LVUP_LOGIN",
+        "id_login": 61,
+        "login": "victor.teste2",
+        "senha": "1010",
+        "st_ativo": "S"
+    },
+    {
+        "tabela": "T_ENDERECO",
+        "id_endereco": 1,
+        "cep": "01000-001",
+        "pais": "BRA",
+        "estado": "SP",
+        "cidade": "São Paulo",
+        "bairro": "Bela Vista",
+        "rua": "Rua A",
+        "numero": 10,
+        "complemento": null
+    },
+    {
+        "tabela": "T_ENDERECO",
+        "id_endereco": 10,
+        "cep": "10123-457",
+        "pais": "BRA",
+        "estado": "PE",
+        "cidade": "Recife",
+        "bairro": "Pina",
+        "rua": "Rua J",
+        "numero": 100,
+        "complemento": null
+    },
+    {
+        "tabela": "T_ENDERECO",
+        "id_endereco": 11,
+        "cep": "11000-001",
+        "pais": "BRA",
+        "estado": "SP",
+        "cidade": "São Paulo",
+        "bairro": "Faria Lima",
+        "rua": "Av. Tech",
+        "numero": 110,
+        "complemento": "Torre A"
+    },
+    {
+        "tabela": "T_ENDERECO",
+        "id_endereco": 21,
+        "cep": "21000-001",
+        "pais": "BRA",
+        "estado": "SP",
+        "cidade": "São Paulo",
+        "bairro": "Vila Mariana",
+        "rua": "Rua da Escola",
+        "numero": 210,
+        "complemento": "Campus A"
+    },
+    {
+        "tabela": "T_ENDERECO",
+        "id_endereco": 31,
+        "cep": "31000-001",
+        "pais": "BRA",
+        "estado": "SP",
+        "cidade": "São Paulo",
+        "bairro": "Pinheiros",
+        "rua": "Rua dos Eventos",
+        "numero": 310,
+        "complemento": "Espaço A"
+    },
+    {
+        "tabela": "T_ENDERECO",
+        "id_endereco": 45,
+        "cep": "01310-200",
+        "pais": "BRA",
+        "estado": "SP",
+        "cidade": "São Paulo",
+        "bairro": "Bela Vista",
+        "rua": "Avenida Paulista",
+        "numero": 150,
+        "complemento": null
+    },
+    {
+        "tabela": "T_ENDERECO",
+        "id_endereco": 41,
+        "cep": "01310-200",
+        "pais": "BRA",
+        "estado": "SP",
+        "cidade": "São Paulo",
+        "bairro": "Bela Vista",
+        "rua": "Avenida Paulista",
+        "numero": 123,
+        "complemento": null
+    }
+]
