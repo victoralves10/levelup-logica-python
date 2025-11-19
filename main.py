@@ -516,6 +516,7 @@ def conectar_oracledb(_user: str, _password: str, _dsn: str) -> tuple[bool, any]
     
     return retorno
 
+
 # ========= INSERT  =========
 def insert_endereco(_conexao: oracledb.Connection, _dados_endereco: dict) -> tuple[bool, any]:
     """
@@ -763,6 +764,32 @@ def select_para_preview(_conexao: oracledb.Connection) -> tuple[bool, any]:
     except Exception as e:
         return False, str(e)
 
+# ========= SELECT GENÉRICO COM PANDAS =========
+def select_para_generico(_conexao, _tabelas, _colunas, _parametro):
+    lista_resultados = []
+
+    try:
+        for tabela in _tabelas:
+            for col in _colunas:
+                sql = f"SELECT * FROM {tabela} WHERE {col} LIKE ?"
+                
+                cursor = _conexao.cursor()
+                cursor.execute(sql, ('%' + _parametro + '%',))
+                dados = cursor.fetchall()
+                
+                if dados:
+                    colunas_cursor = [c[0].lower() for c in cursor.description]
+                    df = pd.DataFrame(dados, columns=colunas_cursor)
+                    df.insert(0, 'tabela', tabela)  # adiciona o nome da tabela como coluna
+                    lista_resultados.extend(df.to_dict(orient='records'))
+                
+                cursor.close()
+
+        return True, lista_resultados
+
+    except Exception as e:
+        return False, str(e)
+
 # ========= IMPRIMIR LISTA COMO TABELA =========
 def imprimir_lista_como_tabela(lista_resultados: list[dict]) -> None:
     """
@@ -968,7 +995,8 @@ else:
     print(f"Detalhes do erro:\n{conn}\n")
     input("Aperte ENTER para encerrar o programa...")
 
-# ok = True
+
+# ok = False
 
 # ========================================
 #   MENU PRINCIPAL
@@ -978,17 +1006,13 @@ while ok:
     limpar_terminal()
     exibir_titulo_centralizado("LEVEL UP - PORTAL DE EMPRESAS E DEMANDAS", 60)
 
-    print("LEVEL UP — conectamos as demandas das empresas ao futuro.")
-    print("Cadastre sua necessidade e identificaremos as áreas mais requisitadas,")
-    print("impulsionando eventos de qualificação e novas oportunidades no mercado.\n")
-
     print("1 - Cadastrar nova empresa")
     print("2 - Consultar empresas cadastradas")
     print("3 - Atualizar informações de uma empresa")
     print("4 - Remover cadastro de empresa")
     print("0 - Sair do sistema")
 
-    escolha_menu_principal = obter_int_intervalado("Escolha: ", "Entrada inválida.", 0, 4)
+    escolha_menu_principal = obter_int_intervalado("\nEscolha: ", "Entrada inválida.", 0, 4)
 
     match escolha_menu_principal:
 
@@ -1124,14 +1148,36 @@ while ok:
                 case 1: # PESQUISA GENÉRICA
                     limpar_terminal()
                     exibir_titulo_centralizado("PESQUISA GENÉRICA", 60)
-                    print("\nFunção em manutenção. Em breve disponível!\n")
-                    input("\nAperte ENTER para voltar ao menu principal...")
+
+                    # tabelas que queremos buscar
+                    tabelas = ["T_EMPRESA", "T_LVUP_LOGIN", "T_ENDERECO"]
+
+                    # colunas que queremos pesquisar
+                    colunas = [
+                        "nm_empresa", "cnpj_empresa", "email_empresa",  # T_EMPRESA
+                        "login", "senha",                                # T_LVUP_LOGIN
+                        "cep", "pais", "estado", "cidade", "bairro", "rua", "complemento"  # T_ENDERECO
+                    ]
+
+                    # valor que queremos buscar
+                    parametro = obter_texto("Escreva o valor para buscar: ", "Entrada inválida. O campo não pode ficar vazio.")
+
+                    # executa a busca
+                    ok, resultados = select_para_generico(conn, tabelas, colunas, parametro)
+
+                    if ok:
+                        print("Resultados encontrados:")
+                        for r in resultados:
+                            print(r)
+                    else:
+                        print("Erro:", resultados)
 
                     deseja_exportar = obter_sim_nao(
                         "\nDeseja exportar essa consulta para um arquivo JSON? (S/N): ",
                         "Entrada inválida! Digite 'S' para Sim ou 'N' para Não."
                     )
 
+                    # -----------------------
                     if deseja_exportar:
                         nome_arquivo = input(
                             "\nDigite o nome do arquivo (ex: empresa.json): "
@@ -1303,3 +1349,6 @@ while ok:
             exibir_titulo_centralizado("REMOVER CADASTRO DE EMPRESA", 60)
             print("\nFunção em manutenção. Em breve disponível!\n")
             input("\nAperte ENTER para voltar ao menu principal...")
+
+if ok:
+    conn.close()
