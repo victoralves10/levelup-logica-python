@@ -1,224 +1,64 @@
-📊 LEVEL UP 
+# 📊 LEVEL UP
 
-🔗 link para o Vídeo de PYTHON
+## 🔗 Links Úteis
+- [Vídeo de Python](#)  
+- [Vídeo Pitch do Projeto](#)  
+- [Repositório no GitHub](https://github.com/victoralves10/levelup-logica-python)  
 
-🔗 Link para o Vídeo Pitch do Projeto (por o link)
-🔗 Link do repositório (https://github.com/victoralves10/levelup-logica-python)
+---
 
-👥 Integrantes do Projeto
-Nome	                  RM	    Contato
-Eduardo Batista Locaspi   561713	rm561713@fiap.com.br
-Victor Alves Lopes	      561833	rm561833@fiap.com.br
+## 👥 Integrantes do Projeto
 
-🚀 Sobre o Projeto
-O LEVEL UP é um sistema completo de cadastro e gestão de empresas desenvolvido em Python, com integração ao banco de dados Oracle. 
-O sistema permite o CRUD completo (Create, Read, Update, Delete) de empresas, incluindo gestão de endereços e credenciais de login.
+| Nome                     | RM    | Contato                  |
+|--------------------------|-------|-------------------------|
+| Eduardo Batista Locaspi  | 561713 | rm561713@fiap.com.br   |
+| Victor Alves Lopes       | 561833 | rm561833@fiap.com.br   |
 
-✨ Funcionalidades Principais
-🏢 Cadastro de Empresas
-Cadastro completo com dados da empresa, endereço e login
+---
 
-Validação automática de CNPJ, e-mail e CEP
+## 🚀 Sobre o Projeto
+O **LEVEL UP** é um sistema completo de cadastro e gestão de empresas desenvolvido em Python, com integração ao banco de dados Oracle.  
+O sistema permite o CRUD completo (**Create, Read, Update, Delete**) de empresas, incluindo gestão de endereços e credenciais de login.
 
-Integração com ViaCEP para preenchimento automático de endereços
+---
 
-Confirmação em múltiplas etapas antes do cadastro
+## ✨ Funcionalidades Principais
 
-🔍 Consultas Avançadas
-Pesquisa genérica - Busca em todos os campos das tabelas
+### 🏢 Cadastro de Empresas
+- Cadastro completo com dados da empresa, endereço e login  
+- Validação automática de CNPJ, e-mail e CEP  
+- Integração com ViaCEP para preenchimento automático de endereços  
+- Confirmação em múltiplas etapas antes do cadastro  
 
-Pesquisa por ID - Consulta específica por identificador
+### 🔍 Consultas Avançadas
+- Pesquisa genérica: busca em todos os campos das tabelas  
+- Pesquisa por ID: consulta específica por identificador  
+- Pesquisa geral: lista completa de todas as empresas  
+- Exportação para JSON: salva resultados em arquivo  
 
-Pesquisa geral - Lista completa de todas as empresas
+### ✏️ Atualização de Dados
+- Edição campo a campo com preview dos dados atuais  
+- Atualização em cascata: modifica empresa, login e endereço  
+- Validação em tempo real durante a edição  
 
-Exportação para JSON - Salva resultados em arquivo
+### 🗑️ Exclusão Segura
+- Confirmação dupla antes da exclusão  
+- Exclusão em cascata: remove empresa, login e endereço  
+- Preview dos dados que serão excluídos  
 
-✏️ Atualização de Dados
-Edição campo a campo com preview dos dados atuais
+---
 
-Atualização em cascata - Modifica empresa, login e endereço
+## 🛠️ Tecnologias Utilizadas
+- **Python 3.x** - Linguagem principal  
+- **Oracle Database** - Banco de dados  
+- **Pandas** - Manipulação de dados  
+- **Requests** - Integração com API ViaCEP  
+- **JSON** - Exportação de dados  
 
-Validação em tempo real durante a edição
+---
 
-🗑️ Exclusão Segura
-Confirmação dupla antes da exclusão
+## 📋 Pré-requisitos
 
-Exclusão em cascata - Remove empresa, login e endereço
-
-Preview dos dados que serão excluídos
-
-🛠️ Tecnologias Utilizadas
-Python 3.x - Linguagem principal
-
-Oracle Database - Banco de dados
-
-Pandas - Manipulação de dados
-
-Requests - Integração com API ViaCEP
-
-JSON - Exportação de dados
-
-📋 Pré-requisitos
-Bibliotecas Python necessárias:
-bash
+### Bibliotecas Python
+```bash
 pip install oracledb requests pandas
-Configuração do Banco de Dados:
-O sistema conecta automaticamente ao servidor Oracle da FIAP:
-
-Host: oracle.fiap.com.br
-
-Porta: 1521
-
-Service: ORCL
-
-🎯 Como Usar
-1. Cadastrar Nova Empresa
-text
-Menu → 1 - Cadastrar nova empresa
-Fluxo:
-
-Confirmação para iniciar cadastro
-
-Coleta de dados de login
-
-Coleta de endereço (com consulta automática via CEP)
-
-Coleta de dados da empresa
-
-Confirmação final
-
-Inserção no banco de dados
-
-2. Consultar Empresas
-text
-Menu → 2 - Consultar empresas cadastradas
-Tipos de consulta disponíveis:
-
-Pesquisa Genérica: Busca qualquer termo em todos os campos
-
-Pesquisa por ID: Consulta específica por identificador
-
-Pesquisa Geral: Lista todas as empresas cadastradas
-
-3. Atualizar Dados
-text
-Menu → 3 - Atualizar informações de uma empresa
-Processo:
-
-Seleciona empresa pelo ID
-
-Visualiza dados atuais
-
-Escolhe campo para atualizar (1-16)
-
-Confirma alteração
-
-Visualiza dados atualizados
-
-4. Excluir Empresa
-text
-Menu → 4 - Remover cadastro de empresa
-Procedimento seguro:
-
-Seleciona empresa pelo ID
-
-Visualiza dados que serão excluídos
-
-Confirmação dupla de exclusão
-
-Exclusão em cascata (empresa + login + endereço)
-
-🗂️ Estrutura do Banco de Dados
-Tabelas Principais:
-T_EMPRESA
-id_empresa (PK, Identity)
-
-nm_empresa (Nome)
-
-cnpj_empresa (CNPJ)
-
-email_empresa (E-mail)
-
-dt_cadastro (Data de cadastro)
-
-st_empresa (Status: A/I)
-
-T_LVUP_LOGIN
-id_login (PK, Identity)
-
-login (Usuário)
-
-senha (Senha)
-
-st_ativo (Status: S/N)
-
-T_ENDERECO
-id_endereco (PK, Identity)
-
-cep (CEP)
-
-pais (País)
-
-estado (UF)
-
-cidade (Cidade)
-
-bairro (Bairro)
-
-rua (Logradouro)
-
-numero (Número)
-
-🔧 Funcionalidades Técnicas
-Validações Implementadas:
-✅ CNPJ (14 dígitos, com formatação)
-
-✅ E-mail (regex validation)
-
-✅ CEP (8 dígitos + API ViaCEP)
-
-✅ Campos obrigatórios
-
-✅ Tipos de dados (int, float, text)
-
-✅ Datas (formato DD/MM/AAAA)
-
-Segurança:
-🔒 Transações com commit/rollback
-
-🔒 Confirmações para operações críticas
-
-🔒 Validação de relacionamentos entre tabelas
-
-🔒 Tratamento de erros robusto
-
-📁 Exportação de Dados
-Todas as consultas podem ser exportadas para JSON:
-
-Formatação automática de datas
-
-Codificação UTF-8
-
-Estrutura hierárquica completa
-
-🚨 Tratamento de Erros
-O sistema inclui tratamento completo para:
-
-❌ Conexão com banco de dados
-
-❌ Consultas SQL malformadas
-
-❌ Dados de entrada inválidos
-
-❌ Problemas de rede (API ViaCEP)
-
-❌ Violação de constraints
-
-📞 Suporte e Contato
-Para dúvidas técnicas ou suporte sobre o projeto:
-
-Eduardo Batista Locaspi
-📧 rm561713@fiap.com.br
-
-Victor Alves Lopes
-📧 rm561833@fiap.com.br
