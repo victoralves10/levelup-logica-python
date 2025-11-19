@@ -1,8 +1,18 @@
-📊 LEVEL UP - Sistema de Gestão de Empresas
-🔗 Link para o Vídeo Pitch do Projeto (substitua pelo link real do seu vídeo)
+📊 LEVEL UP 
+
+🔗 link para o Vídeo de PYTHON
+
+🔗 Link para o Vídeo Pitch do Projeto (por o link)
+🔗 Link do repositório (https://github.com/victoralves10/levelup-logica-python)
+
+👥 Integrantes do Projeto
+Nome	                  RM	    Contato
+Eduardo Batista Locaspi   561713	rm561713@fiap.com.br
+Victor Alves Lopes	      561833	rm561833@fiap.com.br
 
 🚀 Sobre o Projeto
-O LEVEL UP é um sistema completo de cadastro e gestão de empresas desenvolvido em Python, com integração ao banco de dados Oracle. O sistema permite o CRUD completo (Create, Read, Update, Delete) de empresas, incluindo gestão de endereços e credenciais de login.
+O LEVEL UP é um sistema completo de cadastro e gestão de empresas desenvolvido em Python, com integração ao banco de dados Oracle. 
+O sistema permite o CRUD completo (Create, Read, Update, Delete) de empresas, incluindo gestão de endereços e credenciais de login.
 
 ✨ Funcionalidades Principais
 🏢 Cadastro de Empresas
@@ -203,3 +213,12 @@ O sistema inclui tratamento completo para:
 ❌ Problemas de rede (API ViaCEP)
 
 ❌ Violação de constraints
+
+📞 Suporte e Contato
+Para dúvidas técnicas ou suporte sobre o projeto:
+
+Eduardo Batista Locaspi
+📧 rm561713@fiap.com.br
+
+Victor Alves Lopes
+📧 rm561833@fiap.com.br
