@@ -24,10 +24,11 @@ pip install pandas
 
 ## 👥 Integrantes do Projeto
 
-  Nome                      RM       Contato
-  ------------------------- -------- ----------------------
-  Eduardo Batista Locaspi   561713   rm561713@fiap.com.br
-  Victor Alves Lopes        561833   rm561833@fiap.com.br
+| Nome                    | RM     | Contato                                             |
+| ----------------------- | ------ | --------------------------------------------------- |
+| Eduardo Batista Locaspi | 561713 | [rm561713@fiap.com.br](mailto:rm561713@fiap.com.br) |
+| Victor Alves Lopes      | 561833 | [rm561833@fiap.com.br](mailto:rm561833@fiap.com.br) |
+
 
 ------------------------------------------------------------------------
 
