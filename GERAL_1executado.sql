@@ -1,0 +1,169 @@
+-- ===========================================
+-- SCRIPT DE LIMPEZA (DROP TABLE)
+-- ===========================================
+
+-- ORDEM INVERSA: Começa pelas tabelas que possuem FKs ou PKs compostas.
+
+-- 1. Tabelas Associativas (M:N)
+DROP TABLE EMPRESA_CATEGORIA;
+DROP TABLE EMPRESA_VAGA;
+DROP TABLE PESSOA_EVENTO;
+DROP TABLE VAGA_CATEGORIA;
+
+-- 2. Tabela Fraca (depende de T_EMPRESA)
+DROP TABLE T_TELEFONE_EMPRESA;
+
+-- 3. Tabelas Fortes com FKs (Entidades Principais)
+DROP TABLE T_LVUP_EVENTO;
+DROP TABLE T_PESSOA;
+DROP TABLE T_EMPRESA;
+DROP TABLE T_INST_ACADEMICA;
+
+-- 4. Tabelas Fortes de Domínio e Controle (referenciadas pelas entidades acima)
+DROP TABLE T_LVUP_LOGIN;
+DROP TABLE T_VAGA_EMPRESA;
+DROP TABLE T_CATEGORIA_VAGA;
+DROP TABLE T_CATEGORIA_EMPRESA;
+DROP TABLE T_ENDERECO;
+
+-- FIM DO SCRIPT DROP TABLE
+
+-- ===========================================
+-- 1. TABELAS FORTES / PRINCIPAIS (COM IDENTITY PK)
+-- ===========================================
+
+
+-- T_ENDERECO (Não possui FKs)
+CREATE TABLE T_ENDERECO(
+id_endereco INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+cep VARCHAR2(10) NOT NULL,
+pais VARCHAR2(3) NOT NULL,
+estado VARCHAR2(2) NOT NULL,
+cidade VARCHAR2(100) NOT NULL,
+bairro VARCHAR2(100) NOT NULL,
+rua VARCHAR2(150) NOT NULL,
+numero INTEGER NOT NULL,
+complemento VARCHAR2(150)
+);
+
+-- T_CATEGORIA_EMPRESA
+CREATE TABLE T_CATEGORIA_EMPRESA (
+id_categoriaEmpresa INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+setor VARCHAR2(100) NOT NULL,
+subsetor VARCHAR2(100) NOT NULL,
+segmento VARCHAR2(100) NOT NULL
+);
+
+-- T_CATEGORIA_VAGA
+CREATE TABLE T_CATEGORIA_VAGA (
+id_categoria_vaga INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+setor VARCHAR2(100) NOT NULL,
+subsetor VARCHAR2(100) NOT NULL,
+segmento VARCHAR2(100) NOT NULL
+);
+
+-- T_VAGA_EMPRESA
+CREATE TABLE T_VAGA_EMPRESA (
+id_vagaEmpresa INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+vaga_tema VARCHAR2(100) NOT NULL,
+des_vaga VARCHAR2(300),
+st_vaga CHAR(1) NOT NULL
+);
+
+-- T_LVUP_LOGIN (FKs opcionais, removendo NOT NULL)
+CREATE TABLE T_LVUP_LOGIN (
+id_login INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+login VARCHAR2(100) NOT NULL,
+senha VARCHAR2(100) NOT NULL,
+st_ativo CHAR(1) NOT NULL,
+id_empresa INTEGER,
+id_instAcademica INTEGER,
+id_pessoa INTEGER
+);
+
+-- T_PESSOA (Depende de T_ENDERECO e T_LVUP_LOGIN)
+CREATE TABLE T_PESSOA (
+id_pessoa INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+nm_pessoa VARCHAR2(150) NOT NULL,
+cpf_pessoa VARCHAR2(15) NOT NULL,
+dt_nascimento DATE NOT NULL,
+id_endereco INTEGER REFERENCES T_ENDERECO (id_endereco),
+id_login INTEGER NOT NULL REFERENCES T_LVUP_LOGIN (id_login)
+);
+
+-- T_EMPRESA (Depende de T_ENDERECO e T_LVUP_LOGIN)
+CREATE TABLE T_EMPRESA (
+id_empresa INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+nm_empresa VARCHAR2(150) NOT NULL,
+cnpj_empresa VARCHAR2(20) NOT NULL,
+email_empresa VARCHAR2(100) NOT NULL,
+dt_cadastro DATE NOT NULL, -- mudar isso para fazer automatico
+st_empresa CHAR(1) NOT NULL,
+id_endereco INTEGER REFERENCES T_ENDERECO (id_endereco),
+id_login INTEGER NOT NULL REFERENCES T_LVUP_LOGIN (id_login)
+);
+
+-- T_INST_ACADEMICA (Depende de T_ENDERECO e T_LVUP_LOGIN)
+CREATE TABLE T_INST_ACADEMICA (
+id_instAcademica INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+nm_instAcademica VARCHAR2(150) NOT NULL,
+st_ativo CHAR(1) NOT NULL,
+cnpj_inst_academica VARCHAR2(15) NOT NULL,
+id_endereco INTEGER NOT NULL REFERENCES T_ENDERECO (id_endereco),
+id_login INTEGER NOT NULL REFERENCES T_LVUP_LOGIN (id_login)
+);
+
+-- T_LVUP_EVENTO (Depende de T_INST_ACADEMICA, T_ENDERECO, T_VAGA_EMPRESA)
+CREATE TABLE T_LVUP_EVENTO (
+id_evento INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+nm_evento VARCHAR2(150) NOT NULL,
+descricao_evento VARCHAR2(300),
+qt_dias INTEGER NOT NULL,
+dt_inicio_evento DATE NOT NULL,
+id_instAcademica INTEGER NOT NULL REFERENCES T_INST_ACADEMICA (id_instAcademica),
+id_endereco INTEGER NOT NULL REFERENCES T_ENDERECO (id_endereco),
+id_vagaEmpresa INTEGER REFERENCES T_VAGA_EMPRESA (id_vagaEmpresa)
+);
+
+-- T_TELEFONE_EMPRESA (Depende de T_EMPRESA)
+CREATE TABLE T_TELEFONE_EMPRESA (
+id_telefoneEmpresa INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ddi VARCHAR2(5) NOT NULL,
+ddd VARCHAR2(5) NOT NULL,
+numero VARCHAR2(11) NOT NULL,
+st_telefone CHAR(1) NOT NULL,
+id_empresa INTEGER NOT NULL REFERENCES T_EMPRESA (id_empresa)
+);
+
+
+-- ===========================================
+-- 2. TABELAS FRACAS / ASSOCIATIVAS (M:N)
+-- ===========================================
+
+-- EMPRESA_CATEGORIA (Associação M:N entre T_EMPRESA e T_CATEGORIA_EMPRESA)
+CREATE TABLE EMPRESA_CATEGORIA (
+id_empresa INTEGER NOT NULL REFERENCES T_EMPRESA (id_empresa),
+id_categoriaEmpresa INTEGER NOT NULL REFERENCES T_CATEGORIA_EMPRESA (id_categoriaEmpresa),
+CONSTRAINT Relation_1_PK PRIMARY KEY ( id_empresa, id_categoriaEmpresa )
+);
+
+-- EMPRESA_VAGA (Associação M:N entre T_EMPRESA e T_VAGA_EMPRESA)
+CREATE TABLE EMPRESA_VAGA (
+id_empresa INTEGER NOT NULL REFERENCES T_EMPRESA (id_empresa),
+id_vagaEmpresa INTEGER NOT NULL REFERENCES T_VAGA_EMPRESA (id_vagaEmpresa),
+CONSTRAINT Relation_26_PK PRIMARY KEY ( id_empresa, id_vagaEmpresa )
+);
+
+-- PESSOA_EVENTO (Associação M:N entre T_PESSOA e T_LVUP_EVENTO)
+CREATE TABLE PESSOA_EVENTO (
+id_pessoa INTEGER NOT NULL REFERENCES T_PESSOA (id_pessoa),
+id_evento INTEGER NOT NULL REFERENCES T_LVUP_EVENTO (id_evento),
+CONSTRAINT Relation_8_PK PRIMARY KEY ( id_pessoa, id_evento )
+);
+
+-- VAGA_CATEGORIA (Associação M:N entre T_VAGA_EMPRESA e T_CATEGORIA_VAGA)
+CREATE TABLE VAGA_CATEGORIA (
+id_vagaEmpresa INTEGER NOT NULL REFERENCES T_VAGA_EMPRESA (id_vagaEmpresa),
+id_categoria_vaga INTEGER NOT NULL REFERENCES T_CATEGORIA_VAGA (id_categoria_vaga),
+CONSTRAINT Relation_27_PK PRIMARY KEY ( id_vagaEmpresa, id_categoria_vaga )
+);
