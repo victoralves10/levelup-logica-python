@@ -1,8 +1,18 @@
 # 📊 LEVEL UP
 
+## 📋 Pré-requisitos
+
+### Bibliotecas Python
+```bash
+pip install 
+pip oracledb 
+pip requests 
+pip pandas
+
+
 ## 🔗 Links Úteis
 - [Vídeo de Python](#)  
-- [Vídeo Pitch do Projeto](#)  
+- [Vídeo Pitch do Projeto](https://www.youtube.com/shorts/_mLTC6II3CQ)  
 - [Repositório no GitHub](https://github.com/victoralves10/levelup-logica-python)  
 
 ---
@@ -57,8 +67,3 @@ O sistema permite o CRUD completo (**Create, Read, Update, Delete**) de empresas
 
 ---
 
-## 📋 Pré-requisitos
-
-### Bibliotecas Python
-```bash
-pip install oracledb requests pandas
