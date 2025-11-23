@@ -288,7 +288,6 @@ def obter_cpf(_msg_input: str, _msg_erro: str) -> str:
 
     return cpf_formatado
 
-
 def obter_cnpj(_msg_input: str, _msg_erro: str) -> str:
     """Solicita ao usuário um CNPJ (14 dígitos), aceitando com ou sem formatação
     e retornando sempre no formato 00.000.000/0000-00."""
@@ -392,7 +391,6 @@ def obter_estado(_endereco: dict) -> str:
 def obter_pais(_endereco: dict) -> str:
     """Retorna o país associado ao endereço obtido pela função obter_endereco()."""
     return _endereco.get("pais", "BRA")
-
 
 # ==========================================================
 #   SOLICITAÇÃO DE DADOS T_ENDERECO
@@ -1095,6 +1093,7 @@ def excluir_empresa_por_id(_conexao: oracledb.Connection, _id_empresa: int) -> t
     finally:
         # Restaura autocommit
         _conexao.autocommit = True
+        
 # ==========================================================
 #   EXPORTAR PARA JSON
 # ==========================================================
