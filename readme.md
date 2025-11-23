@@ -14,7 +14,7 @@ pip install pandas
 
 ## 🔗 Links Úteis
 
--   [Vídeo de Python](#)\
+-   [Vídeo de Python](https://youtu.be/KwZ7Ok4hV8M)\
 -   [Vídeo Pitch do
     Projeto](https://www.youtube.com/shorts/_mLTC6II3CQ)\
 -   [Repositório no
